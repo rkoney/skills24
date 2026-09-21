@@ -1,0 +1,160 @@
+
+🎓 NGINX Beginner Training Guide
+
+📌 Module 1: What is NGINX?
+NGINX (pronounced "engine-x") is an open-source software that can function as a:
+	•	Web server — serves websites and files to users
+	•	Reverse proxy — sits between clients and backend servers
+	•	Load balancer — distributes traffic across multiple servers
+	•	HTTP cache — stores responses to serve them faster
+Think of NGINX as a traffic controller for web requests.
+
+📌 Module 2: Installing NGINX
+On Ubuntu/Debian:
+sudo apt update
+sudo apt install nginx
+On CentOS/RHEL:
+sudo yum install epel-release
+sudo yum install nginx
+Verify installation:
+nginx -v
+Start NGINX:
+sudo systemctl start nginx
+sudo systemctl enable nginx  # auto-start on boot
+Check status:
+sudo systemctl status nginx
+
+📌 Module 3: Understanding the File Structure
+/etc/nginx/
+├── nginx.conf          ← Main configuration file
+├── sites-available/    ← All your site configs live here
+├── sites-enabled/      ← Symlinks to active sites
+├── conf.d/             ← Additional config files
+└── mime.types          ← File type mappings
+
+/var/www/html/          ← Default web root (your website files)
+/var/log/nginx/         ← Log files (access.log, error.log)
+
+📌 Module 4: Understanding nginx.conf
+The main config file has three key blocks:
+# Global settings
+worker_processes auto;
+
+events {
+    worker_connections 1024;  # Max connections per worker
+}
+
+http {
+    include mime.types;
+
+    server {
+        listen 80;                    # Port to listen on
+        server_name example.com;      # Your domain name
+
+        root /var/www/html;           # Where your files are
+        index index.html;             # Default file to serve
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+    }
+}
+
+📌 Module 5: Setting Up Your First Website
+Step 1 — Create your website folder:
+sudo mkdir -p /var/www/mysite
+sudo nano /var/www/mysite/index.html
+Step 2 — Add some HTML:
+<!DOCTYPE html>
+<html>
+  <body>
+    <h1>My First NGINX Site 🎉</h1>
+  </body>
+</html>
+Step 3 — Create a server block config:
+sudo nano /etc/nginx/sites-available/mysite
+server {
+    listen 80;
+    server_name mysite.com www.mysite.com;
+
+    root /var/www/mysite;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+Step 4 — Enable the site:
+sudo ln -s /etc/nginx/sites-available/mysite /etc/nginx/sites-enabled/
+Step 5 — Test and reload:
+sudo nginx -t        # Test config for errors
+sudo systemctl reload nginx
+
+📌 Module 6: Essential NGINX Commands
+Command
+Purpose
+sudo systemctl start nginx
+Start NGINX
+sudo systemctl stop nginx
+Stop NGINX
+sudo systemctl restart nginx
+Full restart
+sudo systemctl reload nginx
+Reload config (no downtime)
+sudo nginx -t
+Test configuration
+sudo nginx -s quit
+Graceful shutdown
+
+📌 Module 7: Setting Up a Reverse Proxy
+This is one of NGINX's most powerful features — forwarding requests to another server (e.g. a Node.js or Python app running on port 3000):
+server {
+    listen 80;
+    server_name myapp.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+📌 Module 8: Adding SSL (HTTPS) with Let's Encrypt
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get a free SSL certificate
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# Auto-renewal test
+sudo certbot renew --dry-run
+NGINX will automatically update your config with HTTPS settings.
+
+📌 Module 9: Reading Logs
+# Access log — every request made to your server
+sudo tail -f /var/log/nginx/access.log
+
+# Error log — problems and failures
+sudo tail -f /var/log/nginx/error.log
+
+📌 Module 10: Common Beginner Mistakes to Avoid
+Mistake
+Fix
+Forgetting sudo nginx -t before reload
+Always test config first
+Not reloading after config changes
+Run systemctl reload nginx
+Wrong file permissions on web root
+Use chmod 755 on directories
+Leaving default site enabled
+Remove symlink from sites-enabled/
+Forgetting semicolons in config
+Every directive ends with ;
+
+🗺️ Your Learning Path
+Install NGINX → Understand config → Host a static site
+      → Set up reverse proxy → Add SSL → Monitor logs
+
+Would you like me to go deeper on any module — such as load balancing, caching, security hardening, or hosting a specific app (Node.js, Python, PHP)?
+
