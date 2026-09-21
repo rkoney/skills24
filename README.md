@@ -1,8 +1,27 @@
 # skills24
-[IP Tables] https://help.hostafrica.com/article/setting-up-a-basic-firewall-in-debian-using-iptables
-[firewall] https://linuxcapable.com/how-to-install-firewalld-on-debian-linux/
+- [IP Tables] https://help.hostafrica.com/article/setting-up-a-basic-firewall-in-debian-using-iptables
+- [firewall] https://linuxcapable.com/how-to-install-firewalld-on-debian-linux/
 ## Debian 13 (Trixie) Configuration Guides
 - [Debian 13 Complete Guide: Installation, Security & Server Setup](https://dev.to/dargslan/debian-13-trixie-complete-guide-installation-security-server-setup-2026-3jeb)
 - [Install Debian 13 Step by Step (Server/Desktop, Sudo, SSH, Firewall, Static IP)](https://computingforgeeks.com/install-debian-step-by-step/)
 - [Debian 13 After-Install Guide (nftables, kernel tuning, networking tools)](https://brezular.com/2026/01/02/debian-13-trixie-after-install-guide/)
 - [Debian 12 → 13 Upgrade Guide](https://gist.github.com/yorickdowne/3cecc7b424ce241b173510e36754af47)
+- Debian Handbook - https://debian-handbook.info/browse/stable/
+- Debian overview, installation, partitioning - https://debian-handbook.info/browse/stable/installation.html
+- Basic command-line - https://debian-handbook.info/browse/stable/short-remedial-course.html
+- User/group management, permissions - https://debian-handbook.info/browse/stable/basic-configuration.html
+- APT package management - https://debian-handbook.info/browse/stable/apt.html
+- Services, cron scheduling, backups (rsync) - https://debian-handbook.info/browse/stable/unix-services.html
+- Network interfaces, DNS (Bind9), DHCP - https://debian-handbook.info/browse/stable/network-infrastructure.html
+- Apache, NFS, Samba, LDAP - https://debian-handbook.info/browse/stable/network-services.html
+- SSH, firewall (iptables/nftables) - https://debian-handbook.info/browse/stable/security.html
+- Manpages - https://manpages.debian.org/contents-trixie.html
+- NGINX - https://nginx.org/en/linux_packages.html
+- Firewall (ufw) - https://manpages.debian.org/trixie/ufw/ufw.8.en.html
+- Curl - https://curl.se/docs/tutorial.html
+- Bash scripting - https://www.gnu.org/software/bash/manual/bash.html
+- Debian Administrator's Handbook (full course: install, users, APT, networking, DNS, Apache/NFS/Samba/LDAP, SSH, firewall)](https://debian-handbook.info/browse/stable/)
+- [Bash Reference Manual — official GNU docs](https://www.gnu.org/software/bash/manual/bash.html)
+- [curl Tutorial — official docs](https://curl.se/docs/tutorial.html)
+- [ufw firewall — official Debian man page](https://manpages.debian.org/trixie/ufw/ufw.8.en.html)
+- [NGINX install guide — official docs (Debian section)](https://nginx.org/en/linux_packages.html)
