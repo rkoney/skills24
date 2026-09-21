@@ -1,0 +1,317 @@
+SECTION 2 TUTORIALS
+
+1. User and Group Management in Debian
+
+1.1 Why User Management Matters
+
+In a real computing environment—such as a company, school, or server hosting platform—multiple individuals need access to the same system. However, not everyone should have the same level of control.
+
+For example:
+	•	An IT administrator should be able to install software and configure the system.
+	•	A data entry clerk should only access specific files.
+	•	A web server service should run quietly in the background without human login.
+
+This is why Debian uses a structured system of users and groups.
+
+1.2 Understanding Users
+
+Each user account has:
+	•	A username (e.g., john)
+	•	A user ID (UID)
+	•	A home directory (e.g., /home/john)
+	•	A default shell (command interface)
+
+Types of Users
+Type
+Description
+Example
+Root
+Full system control
+root
+Regular
+Human users
+john, mary
+System
+Used by services
+www-data
+
+1.3 Creating Users (Step-by-Step)
+
+Command:
+sudo adduser john
+What Happens Internally:
+	•	A new user john is created
+	•	A home directory /home/john is created
+	•	Default configuration files are copied
+	•	You are prompted to set a password
+
+Example Scenario:
+
+A company hires a new employee named John in the IT department.
+
+You would:
+sudo adduser john
+Then:
+	•	Assign password
+	•	Provide access rights later via groups
+
+1.4 Creating Multiple Users (Real Scenario)
+
+Imagine a school computer lab with students:
+sudo adduser student1
+sudo adduser student2
+sudo adduser student3
+Each student gets:
+	•	Separate login
+	•	Private home directory
+
+1.5 Creating Groups
+
+Groups help manage permissions efficiently.
+
+Command:
+sudo addgroup developers
+Real-World Example:
+
+In a software company:
+	•	All programmers belong to developers
+	•	All accountants belong to finance
+
+1.6 Adding Users to Groups
+sudo usermod -aG developers john
+Explanation:
+	•	usermod → modify user
+	•	-aG → append to group
+
+⚠️ Without -a, the user may lose existing group memberships.
+
+Example Scenario:
+
+John joins the development team:
+sudo usermod -aG developers john
+Now John can access development files.
+
+1.7 Viewing User Details
+id john
+Output example:
+uid=1001(john) gid=1001(john) groups=1001(john),1002(developers)
+
+1.8 Deleting Users
+sudo deluser john
+Remove completely:
+sudo deluser --remove-home john
+
+1.9 Real-World Case Study
+
+Scenario: Company File Server
+	•	IT Admin → full access
+	•	Developers → access to /project
+	•	Interns → read-only access
+
+You would:
+	•	Create users
+	•	Create groups (developers, interns)
+	•	Assign permissions accordingly
+
+2. File Permissions and Security
+
+2.1 Why Permissions Are Critical
+
+Without permissions:
+	•	Any user could delete system files
+	•	Sensitive data could be exposed
+	•	Malware could spread easily
+
+2.2 Understanding Permission Structure
+
+Run:
+ls -l
+Example:
+-rwxr-x--- 1 john developers script.sh
+Breakdown:
+	•	rwx → owner can read/write/execute
+	•	r-x → group can read/execute
+	•	--- → others have no access
+
+2.3 Numeric Permissions Explained
+Number
+Meaning
+7
+rwx
+6
+rw-
+5
+r-x
+4
+r–
+
+2.4 Changing Permissions
+
+Example 1:
+chmod 755 script.sh
+Meaning:
+	•	Owner: full access
+	•	Others: read + execute
+
+Example 2:
+chmod 600 confidential.txt
+Only owner can read/write.
+
+2.5 Changing Ownership
+sudo chown john:developers file.txt
+
+2.6 Real-World Scenarios
+
+Scenario 1: Secure Financial Data
+chmod 600 payroll.xlsx
+Only finance manager can access.
+
+Scenario 2: Shared Script
+chmod 755 deploy.sh
+Team can run but not modify.
+
+Scenario 3: Public File
+chmod 644 report.txt
+
+3. System Services and Process Management
+
+3.1 What Are Services?
+
+Services are programs that run in the background (called daemons).
+
+Examples:
+	•	Web server
+	•	Database server
+	•	File sharing service
+
+3.2 Managing Services with systemctl
+
+Start Service
+sudo systemctl start apache2
+Stop Service
+sudo systemctl stop apache2
+Enable at Boot
+sudo systemctl enable apache2
+
+3.3 Checking Service Status
+systemctl status apache2
+
+3.4 Understanding Processes
+
+A process is a running program.
+
+View Processes
+ps aux
+
+Real-Time Monitoring
+top
+
+3.5 Killing Processes
+
+Example:
+kill 1234
+Force:
+kill -9 1234
+
+3.6 Real-World Example
+
+Scenario: Frozen Application
+	•	Identify process:
+ps aux | grep firefox
+	•	Kill it:
+kill -9 PID
+
+4. Package Management (APT)
+
+4.1 What is APT?
+
+APT is the primary tool for managing software in Debian.
+
+4.2 Updating System
+sudo apt update
+Downloads latest package list.
+
+4.3 Installing Software
+sudo apt install nginx
+Explanation:
+	•	Downloads package
+	•	Installs dependencies
+	•	Configures software
+
+4.4 Removing Software
+sudo apt remove nginx
+Complete removal:
+sudo apt purge nginx
+
+4.5 Searching for Packages
+apt search apache
+
+4.6 Real-World Scenario
+
+Setting Up a Web Server
+sudo apt update
+sudo apt install nginx
+
+Updating System Weekly
+sudo apt update && sudo apt upgrade
+
+5. Introduction to Samba
+
+5.1 What is Samba?
+
+Samba allows Linux to communicate with Windows systems.
+
+5.2 Installing Samba
+sudo apt install samba
+
+5.3 Creating a Shared Folder
+mkdir /home/john/shared
+
+5.4 Configuring Samba
+
+Edit:
+sudo nano /etc/samba/smb.conf
+Add:
+[OfficeFiles]
+   path = /home/john/shared
+   browseable = yes
+   read only = no
+
+5.5 Restart Service
+sudo systemctl restart smbd
+
+5.6 Real-World Example
+	•	Office with Windows PCs
+	•	Linux server shares documents
+	•	Employees access via network drive
+
+6. Introduction to NFS
+
+6.1 What is NFS?
+
+Network File System allows Linux systems to share directories over a network.
+
+6.2 Installing NFS Server
+sudo apt install nfs-kernel-server
+
+6.3 Configuring Shares
+
+Edit:
+sudo nano /etc/exports
+Example:
+/home/shared 192.168.1.0/24(rw,sync)
+
+6.4 Apply Changes
+sudo exportfs -a
+
+6.5 Mounting on Client
+sudo mount 192.168.1.10:/home/shared /mnt
+
+6.6 Real-World Example
+
+Scenario: Data Center
+	•	One server stores backups
+	•	Other servers mount it via NFS
+
+
+

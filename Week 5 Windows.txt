@@ -1,0 +1,467 @@
+Week 5: Windows Server 2025 — Installation & Initial Configuration Tutorials
+Learning Objectives
+By the end of this week, you should be able to:
+	•	Install Windows Server 2025 successfully.
+	•	Configure initial server settings.
+	•	Install and manage core server roles and features.
+	•	Configure networking services such as DNS and DHCP.
+	•	Deploy File Services and DFS Namespaces.
+	•	Configure Certificate Services (CA).
+	•	Install and configure IIS.
+	•	Configure RRAS and VPN services.
+	•	Use PowerShell for basic administrative automation.
+	•	Apply foundational security hardening practices.
+
+1. Windows Server 2025 Installation
+1.1 Pre-Installation Requirements
+Hardware Requirements
+Minimum recommended specifications:
+Component
+Requirement
+CPU
+1.4 GHz 64-bit processor
+RAM
+4 GB minimum (8 GB recommended)
+Storage
+64 GB minimum
+Network
+Gigabit Ethernet Adapter
+Firmware
+UEFI with Secure Boot
+
+Required Materials
+	•	Windows Server 2025 ISO image
+	•	Bootable USB drive or virtual machine
+	•	Product key (if required)
+	•	Stable network connection
+Recommended Virtualization Platforms
+	•	Hyper-V
+	•	VMware Workstation
+	•	Oracle VirtualBox
+
+1.2 Installation Procedure
+Step 1 — Boot from Installation Media
+	•	Insert the bootable USB or attach the ISO.
+	•	Restart the machine.
+	•	Enter BIOS/UEFI settings.
+	•	Set the boot device priority.
+	•	Boot into Windows Setup.
+
+Step 2 — Select Installation Preferences
+Choose:
+	•	Language
+	•	Time and currency format
+	•	Keyboard layout
+Click:
+Next → Install Now
+
+Step 3 — Choose Edition
+Select one:
+Edition
+Purpose
+Standard
+Small to medium environments
+Datacenter
+Large enterprise and virtualization
+Installation Options:
+Option
+Description
+Desktop Experience
+GUI included
+Server Core
+Minimal interface
+Recommendation:
+	•	Use Desktop Experience for beginners.
+	•	Use Server Core for production security and performance.
+
+Step 4 — Accept License Terms
+	•	Check:
+	•	“I accept the license terms”
+	•	Click:
+	•	Next
+
+Step 5 — Select Installation Type
+Choose:
+	•	Custom: Install Windows only (advanced)
+
+Step 6 — Configure Disk Partitions
+	•	Select available disk.
+	•	Create partitions if necessary.
+	•	Click:
+	•	Next
+The installation process begins.
+
+Step 7 — Configure Administrator Password
+After reboot:
+	•	Set a strong Administrator password.
+	•	Sign in.
+Password Best Practices:
+	•	Minimum 12 characters
+	•	Use uppercase, lowercase, numbers, and symbols
+	•	Avoid dictionary words
+
+2. Initial Server Configuration
+2.1 Configure Computer Name
+GUI Method
+	•	Open:
+	•	Server Manager
+	•	Click:
+	•	Local Server
+	•	Select:
+	•	Computer Name
+	•	Click:
+	•	Change
+	•	Restart the server.
+PowerShell Method
+Rename-Computer -NewName "SRV-DC01" -Restart
+
+2.2 Configure Static IP Address
+GUI Method
+	•	Open:
+	•	Network Connections
+	•	Right-click adapter → Properties
+	•	Select:
+	•	Internet Protocol Version 4 (TCP/IPv4)
+	•	Configure:
+	•	IP Address
+	•	Subnet Mask
+	•	Default Gateway
+	•	DNS Server
+PowerShell Method
+New-NetIPAddress -InterfaceAlias "Ethernet" `
+-IPAddress 192.168.1.10 `
+-PrefixLength 24 `
+-DefaultGateway 192.168.1.1
+Configure DNS:
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" `
+-ServerAddresses 192.168.1.10
+
+2.3 Configure Time Zone
+PowerShell
+Set-TimeZone -Name "Greenwich Standard Time"
+Check current timezone:
+Get-TimeZone
+
+2.4 Enable Remote Desktop
+GUI Method
+	•	Server Manager
+	•	Local Server
+	•	Remote Desktop → Enable
+PowerShell Method
+Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+-name "fDenyTSConnections" -value 0
+Enable firewall rule:
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+3. Installing Roles and Features
+3.1 Using Server Manager
+	•	Open:
+	•	Server Manager
+	•	Select:
+	•	Add Roles and Features
+	•	Choose:
+	•	Role-based or feature-based installation
+	•	Select destination server.
+	•	Choose required roles.
+	•	Complete installation wizard.
+
+3.2 Using PowerShell
+View available roles:
+Get-WindowsFeature
+Install a role:
+Install-WindowsFeature DNS -IncludeManagementTools
+Install multiple roles:
+Install-WindowsFeature DNS,DHCP,Web-Server -IncludeManagementTools
+
+4. DNS Server Configuration
+4.1 Install DNS Role
+Install-WindowsFeature DNS -IncludeManagementTools
+
+4.2 Create Forward Lookup Zone
+GUI Method
+	•	Open DNS Manager.
+	•	Expand server.
+	•	Right-click:
+	•	Forward Lookup Zones
+	•	Select:
+	•	New Zone
+	•	Choose:
+	•	Primary Zone
+	•	Enter zone name.
+Example:
+corp.local
+
+4.3 Add Host Record
+	•	Right-click zone.
+	•	Select:
+	•	New Host (A or AAAA)
+	•	Enter:
+	•	Name
+	•	IP Address
+
+4.4 Verify DNS
+nslookup server01.corp.local
+
+5. DHCP Server Configuration
+5.1 Install DHCP Role
+Install-WindowsFeature DHCP -IncludeManagementTools
+
+5.2 Authorize DHCP Server
+Add-DhcpServerInDC -DnsName "srv-dhcp01.corp.local"
+
+5.3 Create DHCP Scope
+Add-DhcpServerv4Scope `
+-Name "Office Scope" `
+-StartRange 192.168.1.100 `
+-EndRange 192.168.1.200 `
+-SubnetMask 255.255.255.0
+Configure gateway:
+Set-DhcpServerv4OptionValue `
+-ScopeId 192.168.1.0 `
+-Router 192.168.1.1
+Configure DNS:
+Set-DhcpServerv4OptionValue `
+-ScopeId 192.168.1.0 `
+-DnsServer 192.168.1.10 `
+-DnsDomain corp.local
+
+6. File Services and DFS Namespaces
+6.1 Install File Services
+Install-WindowsFeature FS-FileServer
+
+6.2 Create Shared Folder
+New-Item -Path "D:\SharedData" -ItemType Directory
+Create SMB share:
+New-SmbShare -Name "SharedData" -Path "D:\SharedData"
+
+6.3 Install DFS Namespace
+Install-WindowsFeature FS-DFS-Namespace -IncludeManagementTools
+
+6.4 Configure DFS Namespace
+	•	Open DFS Management.
+	•	Right-click:
+	•	Namespaces
+	•	Select:
+	•	New Namespace
+	•	Enter server name.
+	•	Define namespace name.
+Example:
+\\corp.local\Public
+
+7. Certificate Authority (CA) Configuration
+7.1 Install Active Directory Certificate Services
+Install-WindowsFeature ADCS-Cert-Authority -IncludeManagementTools
+
+7.2 Configure Certification Authority
+Install-AdcsCertificationAuthority `
+-CAType EnterpriseRootCA
+
+7.3 Common Uses of CA
+	•	SSL certificates
+	•	VPN authentication
+	•	Secure internal communications
+	•	Smart card authentication
+	•	Code signing
+
+8. IIS (Internet Information Services)
+8.1 Install IIS
+Install-WindowsFeature Web-Server -IncludeManagementTools
+
+8.2 Verify IIS Installation
+Open browser:
+http://localhost
+You should see the IIS default page.
+
+8.3 Deploy a Simple Website
+Create Website Folder
+New-Item -Path "C:\Websites\CompanySite" -ItemType Directory
+Create Test Page
+Set-Content -Path "C:\Websites\CompanySite\index.html" `
+-Value "<h1>Company Website</h1>"
+Create IIS Website
+New-IISSite `
+-Name "CompanySite" `
+-PhysicalPath "C:\Websites\CompanySite" `
+-BindingInformation "*:80:"
+
+9. RRAS and VPN Configuration
+9.1 Install Remote Access Role
+Install-WindowsFeature RemoteAccess -IncludeManagementTools
+Install RRAS:
+Install-WindowsFeature Routing
+
+9.2 Configure RRAS
+GUI Method
+	•	Open:
+	•	Routing and Remote Access
+	•	Right-click server.
+	•	Select:
+	•	Configure and Enable Routing and Remote Access
+	•	Choose:
+	•	VPN Access
+
+9.3 Configure VPN
+Recommended VPN protocols:
+Protocol
+Security Level
+SSTP
+High
+IKEv2
+High
+PPTP
+Low (avoid in production)
+
+9.4 Firewall Rules
+Ensure firewall allows:
+Service
+Port
+SSTP
+TCP 443
+L2TP/IPSec
+UDP 500/4500
+IKEv2
+UDP 500/4500
+
+
+
+10. Basic PowerShell Administration
+10.1 Essential PowerShell Commands
+System Information
+Get-ComputerInfo
+
+View Running Services
+Get-Service
+
+Restart a Service
+Restart-Service DNS
+
+View IP Configuration
+Get-NetIPAddress
+
+Check Installed Roles
+Get-WindowsFeature | Where Installed
+
+Create Local User
+New-LocalUser "helpdesk01" -Password (Read-Host -AsSecureString)
+
+Add User to Administrators Group
+Add-LocalGroupMember -Group "Administrators" -Member "helpdesk01"
+
+11. Initial Security Hardening
+11.1 Configure Windows Firewall
+Enable Firewall
+Set-NetFirewallProfile `
+-Profile Domain,Public,Private `
+-Enabled True
+
+11.2 Enable Automatic Updates
+GUI Method
+	•	Open Settings.
+	•	Navigate to:
+	•	Windows Update
+	•	Enable automatic updates.
+
+11.3 Configure Password Policy
+Recommended Settings
+Setting
+Recommendation
+Minimum Length
+12 characters
+Complexity
+Enabled
+Password History
+24 passwords
+Maximum Age
+60–90 days
+
+11.4 Disable Unused Services
+View services:
+Get-Service
+Disable unnecessary service:
+Set-Service -Name "Fax" -StartupType Disabled
+
+11.5 Enable BitLocker
+Enable-BitLocker -MountPoint "C:"
+
+11.6 Configure Antivirus Protection
+Verify Microsoft Defender status:
+Get-MpComputerStatus
+Update signatures:
+Update-MpSignature
+
+11.7 Audit Log Monitoring
+Open:
+Event Viewer
+Monitor:
+	•	Security logs
+	•	System logs
+	•	Application logs
+
+12. Practical Lab Exercises
+Lab 1 — Install Windows Server 2025
+Tasks:
+	•	Create a virtual machine.
+	•	Install Windows Server 2025.
+	•	Configure:
+	•	Computer name
+	•	Static IP
+	•	Remote Desktop
+
+Lab 2 — Configure DNS and DHCP
+Tasks:
+	•	Install DNS.
+	•	Create forward lookup zone.
+	•	Install DHCP.
+	•	Configure DHCP scope.
+	•	Test client IP assignment.
+
+Lab 3 — Deploy IIS Website
+Tasks:
+	•	Install IIS.
+	•	Create website folder.
+	•	Create HTML page.
+	•	Test access using browser.
+
+Lab 4 — Configure DFS Namespace
+Tasks:
+	•	Install DFS Namespace.
+	•	Create shared folders.
+	•	Configure DFS Namespace.
+	•	Test access from client machines.
+
+Lab 5 — Configure VPN Access
+Tasks:
+	•	Install RRAS.
+	•	Configure VPN.
+	•	Create VPN user.
+	•	Test remote connection.
+
+13. Troubleshooting Guide
+DNS Issues
+Symptoms
+	•	Name resolution failure
+	•	Clients cannot locate servers
+Solutions
+ipconfig /flushdns
+Restart DNS service:
+Restart-Service DNS
+
+DHCP Issues
+Symptoms
+	•	Clients receive APIPA addresses (169.254.x.x)
+Solutions
+Check scope status:
+Get-DhcpServerv4Scope
+Restart DHCP service:
+Restart-Service DHCPServer
+
+IIS Issues
+Symptoms
+	•	Website inaccessible
+Solutions
+Verify IIS service:
+Get-Service W3SVC
+Restart IIS:
+iisreset
+
+

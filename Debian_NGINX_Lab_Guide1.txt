@@ -1,0 +1,267 @@
+Debian 13 — NGINX Web Server Installation
+Beginner-friendly, start-to-finish lab guide
+By the end of this lab, you will have a working NGINX web server displaying your own webpage, plus a second site served through a named server block.
+Lab Topology
+Client PC / Browser         |         | HTTP :80         v +----------------------+ | Debian 13 Server     | |                      | | NGINX                | | 192.168.1.50         | |                      | | /var/www/html        | +----------------------+
+Lab Objective
+You will learn how to:
+	•	Prepare Debian
+	•	Configure the server network
+	•	Update Debian
+	•	Install NGINX
+	•	Start and enable NGINX
+	•	Verify NGINX
+	•	Test the web server locally
+	•	Test it from another computer
+	•	Create your own webpage
+	•	Configure the firewall
+	•	Understand NGINX's directory structure
+	•	Create a basic server block (virtual host)
+	•	Test and troubleshoot the configuration
+Part 1 — Server Preparation
+Step 1 — Log in to Debian
+Log in to your Debian server with your normal user account. You should see a prompt similar to:
+student@debian-server:~$
+Check who you are:
+whoami
+Expected output:
+student
+Step 2 — Become an Administrator
+Most NGINX administration requires root privileges.
+sudo -i
+Your prompt changes from student@debian-server:~$ to root@debian-server:~#.
+When you see the # prompt, you are operating as root. Commands run as root can modify or delete critical system files — be careful.
+Step 3 — Check the Server IP Address
+ip a
+Look for your network interface, e.g.:
+2: ens33:     inet 192.168.1.50/24
+A shorter view:
+ip -br addr
+Record your server's IP address — you will need it in later steps.
+Step 4 — Test Network Connectivity
+Test the gateway (replace with your actual gateway address):
+ping -c 4 192.168.1.1
+Test internet connectivity:
+ping -c 4 debian.org
+Step 5 — Update the Debian Package Repository
+apt update
+Expected output ends with something like:
+Reading package lists... Done
+Step 6 — Upgrade Existing Packages
+apt upgrade
+Confirm with Y when prompted, then allow the update to complete.
+Part 2 — Installing NGINX
+Step 7 — Install NGINX
+On Debian, the package is called nginx. This installs the nginx-core build, which covers standard HTTP serving and reverse-proxy needs.
+apt install nginx
+Confirm with Y when prompted.
+Step 8 — Check NGINX Status
+systemctl status nginx
+You want to see:
+Active: active (running)
+Press q to exit the status screen.
+Step 9 — Start NGINX Manually
+If NGINX is not running:
+systemctl start nginx
+Then re-check status.
+Step 10 — Enable NGINX at Boot
+systemctl enable nginx
+Verify:
+systemctl is-enabled nginx
+Expected result:
+enabled
+Step 11 — Check NGINX's Listening Port
+NGINX listens for HTTP traffic on TCP port 80.
+ss -tulnp | grep :80
+LISTEN 0 511 0.0.0.0:80
+Part 3 — Verifying and Testing
+Step 12 — Test NGINX from the Debian Server
+curl http://localhost
+curl -I http://localhost
+Expected header:
+HTTP/1.1 200 OK
+This confirms the chain Debian → NGINX → HTTP is working.
+Step 13 — Test NGINX Using the Server IP
+curl http://192.168.1.50
+Replace with your actual Debian server IP.
+Step 14 — Test from Another Computer
+From another computer on the same network, open a browser and enter:
+http://192.168.1.50
+You should see the “Welcome to nginx!” default page. If so, your Debian NGINX web server is working.
+Part 4 — Creating Your Own Webpage
+Step 15 — Locate NGINX's Website Files
+cd /var/www/html ls -l
+You should see index.nginx-debian.html — Debian's default NGINX landing page.
+Step 16 — View the Default Webpage
+cat /var/www/html/index.nginx-debian.html
+Step 17 — Back Up the Default Page
+cp /var/www/html/index.nginx-debian.html /var/www/html/index.nginx-debian.html.backup
+ls -l /var/www/html
+Step 18 — Create a New HTML Page
+The default server block's index directive normally looks for index.html first, so create that file:
+nano /var/www/html/index.html
+Enter:
+<!DOCTYPE html> <html> <head>     <title>My Debian Web Server</title> </head> <body>     <h1>Welcome to My Debian Web Server</h1>     <p>NGINX is running successfully on Debian 13.</p>     <p>This server is being used for Linux administration training.</p> </body> </html>
+Save with CTRL+O, press ENTER, then exit with CTRL+X.
+NGINX serves index.html before index.nginx-debian.html because of the order set in the index directive of the default server block. Your new file takes priority automatically — no configuration change needed.
+Step 19 — Check the Webpage
+cat /var/www/html/index.html
+Step 20 — Test NGINX Again
+You normally do not need to reload NGINX after only changing an HTML file.
+curl http://localhost
+Step 21 — Test from the Browser
+From another computer, open http://192.168.1.50 — you should now see “Welcome to My Debian Web Server” with your message underneath.
+Part 5 — Firewall Configuration
+Step 22 — Configure the Firewall (UFW)
+ufw status
+If UFW is not installed:
+apt install ufw
+Allow SSH before enabling the firewall, or you may lock yourself out of a remote session.
+ufw allow ssh ufw allow 80/tcp ufw enable
+Check:
+ufw status
+22/tcp    ALLOW 80/tcp    ALLOW
+NGINX also registers UFW application profiles you can use instead of raw ports:
+ufw app list
+	•	Nginx HTTP — port 80 only
+	•	Nginx HTTPS — port 443 only
+	•	Nginx Full — both 80 and 443
+Part 6 — NGINX Directory Structure and Logs
+Step 23 — Understand NGINX's Important Directories
+	•	/etc/nginx/ — NGINX configuration
+	•	/etc/nginx/nginx.conf — main configuration file
+	•	/var/www/html/ — Default website files
+	•	/var/log/nginx/ — NGINX logs
+	•	/etc/nginx/sites-available/ — Available server block configurations
+	•	/etc/nginx/sites-enabled/ — Enabled server block configurations (symlinks)
+Step 24 — Understand NGINX Logs
+Access log — records every request:
+tail -f /var/log/nginx/access.log
+Open the website from another computer; a new entry should appear. Press CTRL+C to stop watching.
+Error log — records problems:
+tail -f /var/log/nginx/error.log
+Both logs are essential for troubleshooting web servers.
+Part 7 — Server Blocks (Virtual Hosts)
+Step 25 — Create a Server Block Directory
+Instead of using only /var/www/html, create a dedicated website, training.local, served from /var/www/training.
+mkdir -p /var/www/training
+Step 26 — Create the Website
+nano /var/www/training/index.html
+<!DOCTYPE html> <html> <head>     <title>Debian Training Website</title> </head> <body>     <h1>Debian Linux Training</h1>     <p>Welcome to the Debian NGINX training website.</p> </body> </html>
+Step 27 — Set Ownership
+chown -R www-data:www-data /var/www/training ls -ld /var/www/training
+www-data is the account commonly used by Debian's NGINX worker processes.
+Step 28 — Create the Server Block Configuration
+nano /etc/nginx/sites-available/training.conf
+server {      listen 80;     listen [::]:80;      server_name training.local;      root /var/www/training;     index index.html;      access_log /var/log/nginx/training_access.log;     error_log /var/log/nginx/training_error.log;      location / {         try_files $uri $uri/ =404;     }  }
+Step 29 — Enable the Website
+Debian NGINX enables sites by symlinking into sites-enabled (there is no a2ensite helper by default).
+ln -s /etc/nginx/sites-available/training.conf /etc/nginx/sites-enabled/
+Step 30 — Disable the Default Website
+rm /etc/nginx/sites-enabled/default
+This removes only the symlink in sites-enabled. The original file still exists in sites-available and can be re-enabled later.
+Step 31 — Test NGINX Configuration
+Always test NGINX configuration before restarting or reloading it.
+nginx -t
+Expected result:
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok nginx: configuration file /etc/nginx/nginx.conf test is successful
+Step 32 — Reload NGINX
+systemctl reload nginx systemctl status nginx
+Expected result: Active: active (running)
+Step 33 — Configure the Client Computer
+In a real environment, training.local would be resolved by DNS. For this lab, temporarily map it in the client computer's hosts file:
+192.168.1.50 training.local
+The exact hosts-file location depends on the client operating system. Then open http://training.local in a browser — you should see “Debian Linux Training.”
+Step 34 — Verify the Server Block
+curl http://training.local
+You can also test NGINX directly using the Host header, without relying on DNS/hosts resolution:
+curl -H "Host: training.local" http://127.0.0.1
+Step 35 — Check Enabled NGINX Sites
+ls -l /etc/nginx/sites-enabled/
+training.conf -> /etc/nginx/sites-available/training.conf
+This illustrates the Debian NGINX site-enabling flow:
+sites-available        |        | ln -s        v sites-enabled        |        v      NGINX
+Step 36 — Check NGINX's Compiled Modules
+nginx -V
+The output lists configure arguments and --with-... module flags on a single line, for example http_ssl_module, http_v2_module, and http_gzip_static_module. Unlike Apache, standard Debian NGINX packages compile most modules in statically rather than loading them dynamically at runtime.
+Part 8 — Final Verification
+Step 37 — Run the Full Verification Checklist
+NGINX status:
+systemctl status nginx
+Configuration test:
+nginx -t
+Expected: syntax is ok / test is successful
+Port 80:
+ss -tulnp | grep :80
+Website:
+curl http://localhost
+IP address:
+ip -br addr
+Firewall:
+ufw status
+Website files:
+ls -l /var/www/training
+Final Lab Architecture
+                    Network                        |               192.168.1.0/24                        |           +------------+------------+           |                         |    Client Computer           Debian 13 Server                                   |                            192.168.1.50                                   |                                 NGINX                                   |                        +----------+----------+                        |                     |                 training.local        TCP Port 80                        |                 /var/www/training                        |                   index.html
+Command Reference
+Command
+Purpose
+apt update
+Update package information
+apt install nginx
+Install NGINX
+systemctl status nginx
+Check NGINX
+systemctl start nginx
+Start NGINX
+systemctl enable nginx
+Start NGINX at boot
+ss -tulnp
+Check listening ports
+curl
+Test HTTP connectivity
+nginx -t
+Test configuration
+ln -s ... sites-enabled/
+Enable a server block
+rm sites-enabled/...
+Disable a server block
+systemctl reload nginx
+Apply configuration changes
+nginx -V
+Show compiled-in modules
+tail
+Monitor logs
+ufw
+Manage firewall
+
+Apache vs NGINX — Key Differences Recap
+Concept
+Apache
+NGINX
+Package name
+apache2
+nginx
+Service name
+apache2
+nginx
+Main config
+/etc/apache2/apache2.conf
+/etc/nginx/nginx.conf
+Config test
+apache2ctl configtest
+nginx -t
+Site block term
+VirtualHost
+server
+Enable a site
+a2ensite (script)
+ln -s into sites-enabled
+Default page file
+index.html
+index.nginx-debian.html
+
+Important Training Principle
+For every service you install, follow this sequence:
+Install → Configure → Start → Enable → Test → Secure → Monitor → Troubleshoot
+That sequence is more valuable long-term than memorizing individual NGINX commands.

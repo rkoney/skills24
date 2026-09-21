@@ -1,0 +1,311 @@
+Section 3: Networking & Connectivity
+
+1. Configuring Network Interfaces on Debian
+
+Modern Debian systems use ip (from iproute2) and configuration files to manage networking.
+
+1.1 Understanding Network Interfaces
+
+A network interface is simply a connection point:
+	•	eth0, ens33 → wired interfaces
+	•	wlan0 → wireless
+	•	lo → loopback (internal system communication)
+
+1.2 Viewing Network Interfaces
+
+Command:
+ip a
+Explanation:
+	•	ip → modern networking tool
+	•	a → short for address
+
+Output includes:
+	•	Interface name
+	•	IP address
+	•	Status (UP/DOWN)
+
+Example Output (simplified):
+2: ens33: <UP>
+    inet 192.168.1.50/24
+Meaning:
+	•	Interface: ens33
+	•	IP: 192.168.1.50
+	•	Subnet: /24
+
+1.3 Temporary IP Configuration
+
+Assign IP manually:
+ip addr add 192.168.1.100/24 dev ens33
+Breakdown:
+	•	ip addr add → add IP address
+	•	192.168.1.100/24 → IP + subnet
+	•	dev ens33 → target interface
+
+Bring interface up:
+ip link set ens33 up
+Breakdown:
+	•	link → network interface
+	•	set ens33 up → enable interface
+
+1.4 Persistent Configuration (Important)
+
+Edit:
+nano /etc/network/interfaces
+
+Static IP Example:
+auto ens33
+iface ens33 inet static
+    address 192.168.1.100
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+    dns-nameservers 8.8.8.8 8.8.4.4
+
+Explanation:
+	•	auto ens33 → start interface at boot
+	•	iface ens33 inet static → static IP config
+	•	address → your IP
+	•	netmask → subnet
+	•	gateway → router
+	•	dns-nameservers → DNS servers
+
+Apply changes:
+systemctl restart networking
+
+1.5 DHCP Configuration
+auto ens33
+iface ens33 inet dhcp
+	•	Automatically gets IP from router
+
+2. Network Troubleshooting Tools
+
+2.1 Testing Connectivity
+
+Ping:
+ping -c 4 google.com
+Breakdown:
+	•	-c 4 → send 4 packets
+	•	Checks connectivity and latency
+
+2.2 Using Curl (Important Tool)
+
+Install:
+apt install curl
+
+Basic Usage:
+curl http://example.com
+What it does:
+	•	Fetches webpage content
+	•	Tests HTTP connectivity
+
+Check headers only:
+curl -I http://example.com
+	•	-I → fetch headers only
+	•	Useful for debugging web servers
+
+Test HTTPS:
+curl https://google.com
+
+Debug connection:
+curl -v http://example.com
+	•	-v → verbose mode
+	•	Shows:
+	•	DNS resolution
+	•	TCP connection
+	•	HTTP response
+
+2.3 Other Useful Tools
+
+Check routing:
+ip route
+
+Check open ports:
+ss -tuln
+Breakdown:
+	•	t → TCP
+	•	u → UDP
+	•	l → listening
+	•	n → numeric output
+
+DNS testing:
+nslookup google.com
+
+3. SSH and Remote Administration
+
+3.1 Install SSH Server
+apt install openssh-server
+
+3.2 Start and Enable SSH
+systemctl enable ssh
+systemctl start ssh
+
+3.3 Connect to Server
+
+From another machine:
+ssh user@192.168.1.100
+
+Breakdown:
+	•	ssh → secure shell
+	•	user → remote username
+	•	192.168.1.100 → server IP
+
+3.4 First Connection
+	•	You’ll be asked:
+	•	Confirm fingerprint → type yes
+	•	Enter password
+
+3.5 SSH Key Authentication (Recommended)
+
+Generate key:
+ssh-keygen
+
+Copy key:
+ssh-copy-id user@192.168.1.100
+
+Why:
+	•	No password needed
+	•	More secure
+
+3.6 SSH Configuration
+
+Edit:
+nano /etc/ssh/sshd_config
+
+Important settings:
+PermitRootLogin no
+PasswordAuthentication no
+
+Restart:
+systemctl restart ssh
+
+4. Firewall Setup (iptables & UFW)
+
+4.1 Using iptables (Advanced)
+
+View rules:
+iptables -L
+
+Allow SSH:
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+Breakdown:
+	•	-A INPUT → append rule
+	•	-p tcp → protocol
+	•	--dport 22 → SSH port
+	•	-j ACCEPT → allow traffic
+
+Save rules:
+apt install iptables-persistent
+
+4.2 Using UFW (Simpler)
+
+Install:
+apt install ufw
+
+Enable firewall:
+ufw enable
+
+Allow SSH:
+ufw allow ssh
+
+Allow specific port:
+ufw allow 80/tcp
+
+Deny port:
+ufw deny 23
+
+Check status:
+ufw status verbose
+
+5. DNS Server with Bind9
+
+5.1 Install Bind9
+apt install bind9 bind9utils bind9-doc
+
+5.2 Main Configuration Files
+	•	/etc/bind/named.conf
+	•	/etc/bind/named.conf.local
+	•	/etc/bind/named.conf.options
+
+5.3 Configure Forwarders
+
+Edit:
+nano /etc/bind/named.conf.options
+forwarders {
+    8.8.8.8;
+    8.8.4.4;
+};
+
+5.4 Create Zone
+
+Edit:
+nano /etc/bind/named.conf.local
+zone "example.com" {
+    type master;
+    file "/etc/bind/db.example.com";
+};
+
+5.5 Create Zone File
+cp /etc/bind/db.local /etc/bind/db.example.com
+nano /etc/bind/db.example.com
+
+Example:
+@   IN  SOA ns.example.com. admin.example.com. (
+        1 ; Serial
+)
+@   IN  NS  ns.example.com.
+ns  IN  A   192.168.1.100
+www IN  A   192.168.1.101
+
+5.6 Restart Bind9
+systemctl restart bind9
+
+6. LDAP (Introduction)
+
+6.1 What is LDAP?
+
+LDAP = centralized directory:
+	•	Users
+	•	Passwords
+	•	Groups
+
+Used in:
+	•	Enterprises
+	•	Authentication systems
+
+6.2 Install LDAP Server
+apt install slapd ldap-utils
+
+6.3 Reconfigure LDAP
+dpkg-reconfigure slapd
+
+You will set:
+	•	Domain (e.g., example.com)
+	•	Organization name
+	•	Admin password
+
+6.4 Test LDAP
+ldapsearch -x
+
+Explanation:
+	•	-x → simple authentication
+	•	Lists directory entries
+
+6.5 Add Entry Example
+
+Create file:
+nano user.ldif
+dn: uid=john,dc=example,dc=com
+objectClass: inetOrgPerson
+uid: john
+sn: Doe
+cn: John Doe
+
+Add user:
+ldapadd -x -D "cn=admin,dc=example,dc=com" -W -f user.ldif
+
+Breakdown:
+	•	-D → admin user
+	•	-W → prompt password
+	•	-f → input file
+
+

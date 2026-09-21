@@ -1,0 +1,38 @@
+Installing and Configuring Apache Web Server on Debian
+Step-by-step guide
+Step 1: Update package index
+Refresh Debian's package lists so you install the latest available Apache version.
+sudo apt update && sudo apt upgrade -y
+Step 2: Install Apache2
+Install the Apache package. This pulls in apache2-utils and common modules as dependencies.
+sudo apt install apache2 -y
+Step 3: Enable and start the service
+Apache usually starts automatically after install, but confirm it's enabled at boot and running.
+sudo systemctl enable apache2 sudo systemctl start apache2 sudo systemctl status apache2
+Step 4: Adjust the firewall (UFW)
+If UFW is active, allow HTTP/HTTPS traffic. Use the app list command first to see available Apache profiles.
+sudo ufw app list sudo ufw allow 'Apache Full'
+Step 5: Verify it's serving pages
+Open a browser to http://<server-IP> or run curl locally from the server. You should see the default Apache Debian welcome page.
+hostname -I curl localhost
+Step 6: Understand the directory layout
+Key paths to know:
+	•	Config root: /etc/apache2/
+	•	Main config file: apache2.conf
+	•	Site configs: /etc/apache2/sites-available/
+	•	Enabled sites (symlinked): /etc/apache2/sites-enabled/
+	•	Default document root: /var/www/html/
+	•	Logs: /var/log/apache2/
+Step 7: Set up a virtual host
+Create a document root and set ownership.
+sudo mkdir -p /var/www/yourdomain.com/html sudo chown -R $USER:$USER /var/www/yourdomain.com/html
+Copy the default config as a template, then edit ServerName, ServerAlias, and DocumentRoot inside it.
+sudo cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/yourdomain.com.conf
+Step 8: Enable the site and reload
+Enable the new virtual host and disable the default site if it's being replaced.
+sudo a2ensite yourdomain.com.conf sudo a2dissite 000-default.conf
+Test the configuration syntax before reloading.
+sudo apache2ctl configtest sudo systemctl reload apache2
+Optional next steps
+	•	Install free TLS certificates: sudo apt install certbot python3-certbot-apache
+	•	If enabling UFW for the first time, allow OpenSSH first to avoid losing remote access: sudo ufw allow OpenSSH

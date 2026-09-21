@@ -1,0 +1,253 @@
+
+Week 4: Automation, Web, and Data Management in Debian
+
+1. Introduction to Shell Scripting (Bash)
+
+1.1 What is Shell Scripting?
+
+A shell script is a file containing a sequence of commands that the system executes automatically using the shell (command interpreter).
+
+In Debian, the most common shell is Bash (Bourne Again Shell).
+
+Why It Matters
+
+Instead of manually typing commands repeatedly, you can:
+	•	Automate system maintenance
+	•	Deploy applications
+	•	Manage users efficiently
+
+1.2 Creating Your First Script
+
+Step 1: Create a file
+nano backup.sh
+Explanation:
+	•	nano → text editor
+	•	backup.sh → script file (.sh is a convention, not mandatory)
+
+Step 2: Add Script Content
+#!/bin/bash
+echo "Starting backup process..."
+date
+Line-by-Line Explanation:
+
+#!/bin/bash
+	•	Called a shebang
+	•	Tells the system to use Bash to execute the script
+
+echo "Starting backup process..."
+	•	echo → prints text to the terminal
+
+date
+	•	Displays current date and time
+
+Step 3: Make Script Executable
+chmod +x backup.sh
+	•	chmod → change permissions
+	•	+x → add execute permission
+
+Step 4: Run Script
+./backup.sh
+	•	./ → run file in current directory
+
+1.3 Using Variables
+#!/bin/bash
+name="John"
+echo "Hello $name"
+Explanation:
+	•	name="John" → defines variable
+	•	$name → retrieves value
+
+1.4 Conditional Statements
+#!/bin/bash
+if [ -f /etc/passwd ]; then
+    echo "File exists"
+else
+    echo "File not found"
+fi
+Explanation:
+	•	if → condition
+	•	[ -f file ] → checks if file exists
+	•	then → execute if true
+	•	else → execute if false
+	•	fi → ends condition
+
+1.5 Real-World Example
+
+Script: Check Disk Space
+#!/bin/bash
+df -h
+	•	df → disk usage
+	•	-h → human-readable format
+
+Used by system admins daily.
+
+2. Automating Tasks with Cron
+
+2.1 What is Cron?
+
+Cron is a scheduler that runs commands automatically at specified times.
+
+2.2 Editing Cron Jobs
+crontab -e
+Explanation:
+	•	crontab → cron table
+	•	-e → edit
+
+2.3 Cron Syntax
+* * * * * command
+| | | | |
+| | | | └── Day of week (0–7)
+| | | └──── Month (1–12)
+| | └────── Day of month (1–31)
+| └──────── Hour (0–23)
+└────────── Minute (0–59)
+
+2.4 Examples
+
+Run script every day at 2 AM
+0 2 * * * /home/john/backup.sh
+Explanation:
+	•	0 → minute
+	•	2 → hour
+	•	* → every day/month
+
+Run every 5 minutes
+*/5 * * * * /home/john/script.sh
+
+2.5 Real-World Example
+	•	Daily backup at midnight
+	•	Weekly system update
+	•	Log cleanup every Sunday
+
+3. System Monitoring and Logging
+
+3.1 Monitoring System Performance
+
+CPU and Memory Usage
+top
+
+Alternative (better view)
+htop
+Install:
+sudo apt install htop
+
+3.2 Disk Usage
+df -h
+
+3.3 Checking Running Processes
+ps aux
+
+3.4 System Logs
+
+Logs are stored in:
+/var/log/
+
+View System Log
+less /var/log/syslog
+
+Follow Log in Real Time
+tail -f /var/log/syslog
+Explanation:
+	•	tail → show last lines
+	•	-f → follow updates live
+
+3.5 Real-World Example
+
+Troubleshooting a Service Failure
+tail -f /var/log/syslog
+Watch logs while restarting a service.
+
+4. Backup Strategies (Using rsync)
+
+4.1 Why Backups Are Important
+
+Without backups:
+	•	Data loss can be permanent
+	•	System crashes can halt business operations
+
+4.2 What is rsync?
+
+rsync is a fast and efficient backup tool.
+
+4.3 Basic Backup Command
+rsync -av /home/john/ /backup/john/
+
+Explanation:
+	•	rsync → command
+	•	-a → archive mode (preserves permissions)
+	•	-v → verbose (shows progress)
+	•	/home/john/ → source
+	•	/backup/john/ → destination
+
+4.4 Backup to Remote Server
+rsync -av /home/john user@192.168.1.10:/backup/
+
+Explanation:
+	•	user@192.168.1.10 → remote system
+	•	: → separates destination path
+
+4.5 Real-World Example
+
+Daily Backup Script
+#!/bin/bash
+rsync -av /home /backup
+Automate with cron.
+
+5. Web Server Setup (Apache & NGINX)
+
+5.1 Installing Apache
+
+Apache HTTP Server
+sudo apt update
+sudo apt install apache2
+
+5.2 Starting Apache
+sudo systemctl start apache2
+Enable at boot:
+sudo systemctl enable apache2
+
+5.3 Testing Apache
+
+Open browser:
+http://localhost
+
+5.4 Apache Configuration
+
+Main directory:
+/etc/apache2/
+
+5.5 Installing NGINX
+
+NGINX
+sudo apt install nginx
+
+5.6 Starting NGINX
+sudo systemctl start nginx
+
+5.7 Apache vs NGINX
+Feature
+Apache
+NGINX
+Ease of use
+Easy
+Moderate
+Performance
+Good
+Very high
+Use case
+General
+High traffic
+
+5.8 Hosting a Simple Website
+
+Create Web Page
+sudo nano /var/www/html/index.html
+Add:
+<h1>Welcome to My Server</h1>
+
+5.9 Real-World Example
+	•	Company website hosting
+	•	Internal dashboards
+	•	APIs for applications
+
+

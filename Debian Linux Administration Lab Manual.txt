@@ -1,0 +1,586 @@
+Debian Linux Administration Lab Manual
+
+Duration: 4 Weeks
+Skill Level: Beginner → Junior Linux Administrator
+
+Primary platform used:
+	•	Debian
+
+Recommended virtualization environment for training:
+	•	VirtualBox
+	•	VMware Workstation
+
+Using virtualization allows students to practice without damaging their primary system.
+
+Training Environment Setup
+
+Step 1: Install Virtualization Software
+
+Install either:
+	•	VirtualBox (free and ideal for beginners)
+	•	VMware Workstation Player
+
+Recommended VM specs:
+Resource
+Value
+RAM
+4GB
+CPU
+2 cores
+Disk
+40GB
+Network
+NAT or Bridged
+
+Step 2: Create a Debian Virtual Machine
+	•	Open VirtualBox
+	•	Click New
+	•	Name: Debian-Server
+	•	Type: Linux
+	•	Version: Debian (64-bit)
+	•	Assign RAM → 4096MB
+	•	Create virtual disk → 40GB
+	•	Mount Debian ISO
+	•	Start VM
+
+WEEK 1 LABS — Debian Basics
+
+Lab 1: Install Debian
+
+Objective
+
+Install a working Debian system.
+
+Procedure
+	•	Boot VM with Debian ISO.
+	•	Select Graphical Install.
+	•	Choose:
+
+Language → English
+Region → Your region
+Keyboard → US
+	•	Configure network using DHCP.
+	•	Create users.
+
+Example:
+Root password: admin123
+Username: student
+Password: student123
+	•	Disk partitioning:
+
+Choose:
+Guided – Use Entire Disk
+All files in one partition
+	•	Install SSH server and standard system utilities.
+	•	Finish installation and reboot.
+
+Lab 2: Linux File System Exploration
+
+Objective
+
+Understand Linux directory structure.
+
+Open terminal and explore:
+cd /
+ls
+Important directories to inspect:
+/etc
+/home
+/usr
+/bin
+/var
+/tmp
+Exercise:
+
+Find configuration files:
+cd /etc
+ls
+Check system logs:
+cd /var/log
+ls
+
+Lab 3: Basic Command Line Skills
+
+File Operations
+
+Create files:
+touch file1.txt
+touch file2.txt
+Create directory:
+mkdir training
+Move file:
+mv file1.txt training/
+Copy file:
+cp file2.txt training/
+Delete file:
+rm file2.txt
+List files:
+ls -l
+
+Lab 4: Text Editors
+
+Learn basic editors.
+
+Use Nano:
+nano notes.txt
+Write text.
+
+Save:
+CTRL + O
+Exit:
+CTRL + X
+
+WEEK 1 PRACTICAL TEST
+
+Students must:
+	•	Create a directory called linux_training
+	•	Create 5 files inside
+	•	Move 2 files into a subdirectory
+	•	Delete one file
+
+WEEK 2 LABS — System Administration
+
+Lab 5: User and Group Management
+
+Create Users
+sudo adduser john
+sudo adduser mary
+Check users:
+cat /etc/passwd
+
+Create Groups
+sudo groupadd developers
+Add user to group:
+sudo usermod -aG developers john
+Verify group membership:
+groups john
+
+Lab 6: File Permissions
+
+Create a test file:
+touch project.txt
+View permissions:
+ls -l project.txt
+Change permissions:
+chmod 744 project.txt
+Explanation:
+7 = rwx
+4 = r--
+Change owner:
+sudo chown john project.txt
+
+Lab 7: Process Management
+
+List processes:
+ps aux
+Real-time monitoring:
+top
+Install better monitoring tool:
+sudo apt install htop
+Run:
+htop
+Kill process example:
+kill PID
+
+Lab 8: Package Management
+
+Update system:
+sudo apt update
+sudo apt upgrade
+Install software:
+sudo apt install nginx
+Remove software:
+sudo apt remove nginx
+Search software:
+apt search apache
+
+Lab 9: File Sharing with Samba
+
+Install Samba:
+sudo apt install samba
+Create shared folder:
+sudo mkdir /shared
+sudo chmod 777 /shared
+Edit configuration:
+sudo nano /etc/samba/smb.conf
+Add:
+[shared]
+path = /shared
+browseable = yes
+read only = no
+guest ok = yes
+Restart service:
+sudo systemctl restart smbd
+
+Lab 10: NFS File Sharing
+
+Install server:
+sudo apt install nfs-kernel-server
+Create shared directory:
+sudo mkdir /nfs-share
+Edit exports:
+sudo nano /etc/exports
+Add:
+/nfs-share 192.168.1.0/24(rw,sync)
+Restart service:
+sudo systemctl restart nfs-kernel-server
+
+WEEK 3 LABS — Networking and Security
+
+Lab 11: Network Configuration
+
+Check IP address:
+ip a
+Edit network config:
+sudo nano /etc/network/interfaces
+Example static IP:
+auto eth0
+iface eth0 inet static
+address 192.168.1.100
+netmask 255.255.255.0
+gateway 192.168.1.1
+Restart networking:
+sudo systemctl restart networking
+
+Lab 12: Network Troubleshooting
+
+Test connectivity:
+ping google.com
+Check routes:
+ip route
+Test website:
+curl https://example.com
+
+Lab 13: Remote Administration with SSH
+
+Install SSH:
+sudo apt install openssh-server
+Check service:
+systemctl status ssh
+Connect from another machine:
+ssh student@192.168.1.100
+
+
+Lab 14: Firewall Configuration
+
+Install firewall:
+sudo apt install ufw
+Enable firewall:
+sudo ufw enable
+Allow SSH:
+sudo ufw allow ssh
+Check rules:
+sudo ufw status
+
+Lab 15: DNS Server Setup
+
+Install DNS server:
+sudo apt install bind9
+Check status:
+systemctl status bind9
+Test DNS lookup:
+dig google.com
+
+Lab 16: LDAP Introduction
+
+Install LDAP:
+sudo apt install slapd ldap-utils
+Test LDAP query:
+ldapsearch -x
+LDAP allows centralized user authentication across systems.
+
+WEEK 4 LABS — Automation and Servers
+
+Lab 17: Shell Scripting
+
+Create script:
+nano hello.sh
+Script example:
+#!/bin/bash
+echo "Welcome to Debian Linux"
+date
+Make executable:
+chmod +x hello.sh
+Run:
+./hello.sh
+
+Lab 18: Cron Automation
+
+Edit cron:
+crontab -e
+Example job:
+*/5 * * * * echo "Test Job" >> test.log
+This runs every 5 minutes.
+
+Lab 19: System Monitoring
+
+Check disk usage:
+df -h
+Check memory:
+free -m
+View logs:
+journalctl
+
+Lab 20: Backup with Rsync
+
+Install tool:
+sudo apt install rsync
+Backup directory:
+rsync -av /home /backup
+Remote backup:
+rsync -av /home user@server:/backup
+
+
+
+Lab 21: Web Server Deployment
+
+Install Apache:
+sudo apt install apache2
+Check service:
+systemctl status apache2
+Open browser:
+http://server-ip
+Create test webpage:
+sudo nano /var/www/html/index.html
+Add:
+<h1>My Debian Web Server</h1>
+
+
+
+Module B — Advanced Debian Administration
+
+Duration: Weeks 5–8
+Skill Level: Intermediate System Administration
+Platform: Debian
+
+Goal:
+Develop the ability to manage enterprise Linux systems, including storage, networking, virtualization, monitoring, and security.
+
+Week 5 — Advanced Storage Management
+
+Administrators must understand how to manage disks efficiently and safely.
+
+Lab 22: Disk Identification and Management
+
+Step 1: List Disks
+lsblk
+Example output:
+sda      8:0   0 40G  0 disk
+├─sda1   8:1   0 20G  0 part /
+├─sda2   8:2   0 18G  0 part /home
+└─sda3   8:3   0 2G   0 part [SWAP]
+Another method:
+sudo fdisk -l
+
+Step 2: Create a New Partition
+
+Start partition tool:
+sudo fdisk /dev/sdb
+Commands inside fdisk:
+n   (new partition)
+p   (primary)
+1   (partition number)
+w   (write changes)
+
+Step 3: Format Partition
+
+Create filesystem:
+sudo mkfs.ext4 /dev/sdb1
+
+Step 4: Mount Disk
+
+Create mount directory:
+sudo mkdir /data
+Mount disk:
+sudo mount /dev/sdb1 /data
+Verify:
+df -h
+
+Step 5: Permanent Mount
+
+Edit filesystem table:
+sudo nano /etc/fstab
+Add:
+/dev/sdb1   /data   ext4   defaults   0   2
+
+Lab 23: Logical Volume Manager (LVM)
+
+LVM allows flexible disk management.
+
+Step 1: Install LVM tools
+sudo apt install lvm2
+
+Step 2: Create Physical Volume
+sudo pvcreate /dev/sdb1
+
+Step 3: Create Volume Group
+sudo vgcreate data_vg /dev/sdb1
+
+Step 4: Create Logical Volume
+sudo lvcreate -L 5G -n backup_lv data_vg
+
+Step 5: Format and Mount
+sudo mkfs.ext4 /dev/data_vg/backup_lv
+Mount:
+sudo mount /dev/data_vg/backup_lv /backup
+
+Lab 24: RAID Storage
+
+RAID improves data redundancy and performance.
+
+Install RAID tools:
+sudo apt install mdadm
+Create RAID 1 (mirror):
+sudo mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdb /dev/sdc
+Check status:
+cat /proc/mdstat
+
+Week 6 — Advanced Networking
+
+Lab 25: Network Diagnostics
+
+Tools administrators use daily.
+
+Check interface status:
+ip a
+Check routing:
+ip route
+Check open ports:
+ss -tuln
+
+Lab 26: Packet Analysis
+
+Install:
+sudo apt install tcpdump
+Capture traffic:
+sudo tcpdump -i eth0
+Capture HTTP traffic:
+sudo tcpdump port 80
+
+Lab 27: Network Performance Testing
+
+Install tool:
+sudo apt install iperf3
+Start server:
+iperf3 -s
+Client test:
+iperf3 -c server-ip
+
+Lab 28: Network Time Synchronization
+
+Install:
+sudo apt install chrony
+Check time sources:
+chronyc sources
+Time synchronization is essential for:
+	•	authentication
+	•	logs
+	•	distributed systems
+
+Week 7 — Virtualization and Containers
+
+Modern infrastructure relies heavily on virtualization.
+
+Lab 29: Virtual Machines with KVM
+
+Install KVM stack:
+sudo apt install qemu-kvm libvirt-daemon-system virtinst virt-manager
+Check virtualization support:
+kvm-ok
+List VMs:
+virsh list
+
+Lab 30: Containerization
+
+Install container engine:
+sudo apt install docker.io
+Start Docker:
+sudo systemctl start docker
+Test container:
+sudo docker run hello-world
+Run Debian container:
+sudo docker run -it debian bash
+
+Lab 31: Container Management
+
+List containers:
+docker ps
+Stop container:
+docker stop container_id
+Remove container:
+docker rm container_id
+
+Week 8 — Monitoring, Logging, and Security
+
+Lab 32: System Monitoring
+
+Install monitoring tools:
+sudo apt install htop iotop
+CPU monitoring:
+htop
+Disk I/O monitoring:
+iotop
+
+Lab 33: Log Management
+
+Linux logs are critical for troubleshooting.
+
+Important log directories:
+/var/log/syslog
+/var/log/auth.log
+/var/log/kern.log
+View logs:
+tail -f /var/log/syslog
+Use journal:
+journalctl -xe
+
+Lab 34: Security Hardening
+
+Install security auditing tool:
+sudo apt install lynis
+Run audit:
+sudo lynis audit system
+
+Lab 35: Intrusion Prevention
+
+Install:
+sudo apt install fail2ban
+Start service:
+sudo systemctl start fail2ban
+Check status:
+sudo fail2ban-client status
+Fail2ban protects against:
+	•	SSH brute force attacks
+	•	repeated login attempts
+
+Final Advanced Project
+
+Students must deploy a production-ready Debian server environment.
+
+Requirements
+
+Server must include:
+	•	Static IP configuration
+	•	RAID storage
+	•	LVM volumes
+	•	SSH remote administration
+	•	Firewall configuration
+	•	Docker container deployment
+	•	Automated backups
+	•	Web server deployment
+	•	Monitoring tools
+	•	Security auditing
+
+Skills Achieved After Module B
+
+Students will be able to:
+
+✔ Manage Linux storage systems
+✔ Implement RAID and LVM
+✔ Diagnose network issues
+✔ Deploy virtual machines
+✔ Manage containers
+✔ Monitor system performance
+✔ Secure Linux servers
+
+

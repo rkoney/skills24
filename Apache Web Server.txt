@@ -1,0 +1,513 @@
+We will build this:
+Client PC / Browser
+        |
+        | HTTP :80
+        v
++----------------------+
+| Debian 13 Server     |
+|                      |
+| Apache2              |
+| 192.168.1.50         |
+|                      |
+| /var/www/html        |
++----------------------+
+Debian 13 — Apache Web Server Installation
+Lab objective
+	•	Prepare Debian
+	•	Configure the server network
+	•	Update Debian
+	•	Install Apache
+	•	Start and enable Apache
+	•	Verify Apache
+	•	Test the web server locally
+	•	Test it from another computer
+	•	Create your own webpage
+	•	Configure the firewall
+	•	Understand Apache's directory structure
+	•	Create a basic Virtual Host
+	•	Test and troubleshoot the configuration
+
+Step 1 — Log in to Debian
+Log in to your Debian server.
+You should see something similar to:
+Debian GNU/Linux 13
+debian-server login:
+Log in with your normal user account.
+For example:
+student
+You will then have a prompt similar to:
+student@debian-server:~$
+Check who you are
+Run:
+whoami
+You should see:
+student
+
+Step 2 — Become an Administrator
+Most Apache administration requires root privileges.
+Run:
+sudo -i
+Your prompt should change from:
+student@debian-server:~$
+to something like:
+root@debian-server:~#
+Important
+When you see:
+#
+you are operating as root.
+Be careful because commands executed as root can modify or delete critical system files.
+
+Step 3 — Check the Server IP Address
+Before installing Apache, determine the IP address of the Debian server.
+Run:
+ip a
+Look for your network interface.
+You may see something similar to:
+2: ens33:
+    inet 192.168.1.50/24
+Your server IP in this example is:
+192.168.1.50
+You can also use:
+ip -br addr
+Example:
+lo       UNKNOWN        127.0.0.1/8
+ens33    UP             192.168.1.50/24
+Record your server's IP address.
+You will need it later.
+
+Step 4 — Test Network Connectivity
+First test your gateway.
+For example:
+ping -c 4 192.168.1.1
+Replace 192.168.1.1 with your actual gateway if different.
+You should receive replies.
+Then test Internet connectivity:
+ping -c 4 debian.org
+If you receive replies, your Debian server has network connectivity.
+
+Step 5 — Update the Debian Package Repository
+Before installing Apache, update the package information.
+Run:
+apt update
+You should see Debian repositories being contacted.
+At the end you should see something similar to:
+Reading package lists... Done
+
+Step 6 — Upgrade Existing Packages
+Run:
+apt upgrade
+If prompted:
+Do you want to continue? [Y/n]
+Enter:
+Y
+Then press Enter.
+Allow the update to complete.
+
+Step 7 — Install Apache
+Now install Apache.
+On Debian, the package is called:
+apache2
+Run:
+apt install apache2
+When asked:
+Do you want to continue? [Y/n]
+Enter:
+Y
+Apache and its required packages will be installed.
+
+Step 8 — Check Apache Status
+After installation, check the Apache service.
+Run:
+systemctl status apache2
+You want to see:
+Active: active (running)
+For example:
+● apache2.service - The Apache HTTP Server
+     Loaded: loaded
+     Active: active (running)
+If you see active (running)
+Apache is running correctly.
+Press:
+q
+to exit the status screen.
+
+Step 9 — Start Apache Manually
+If Apache is not running, start it with:
+systemctl start apache2
+Then check:
+systemctl status apache2
+You should now see:
+Active: active (running)
+
+Step 10 — Enable Apache at Boot
+We want Apache to automatically start whenever the Debian server boots.
+Run:
+systemctl enable apache2
+You should receive a message indicating that the service has been enabled.
+Verify:
+systemctl is-enabled apache2
+Expected result:
+enabled
+
+Step 11 — Check Apache's Listening Port
+Apache normally listens for HTTP traffic on TCP port 80.
+Run:
+ss -tulnp | grep :80
+You should see something similar to:
+LISTEN 0 511 0.0.0.0:80
+This means Apache is listening for HTTP connections.
+
+Step 12 — Test Apache from the Debian Server
+Now test Apache locally.
+Run:
+curl http://localhost
+You should receive HTML output.
+You can also run:
+curl -I http://localhost
+You should see something similar to:
+HTTP/1.1 200 OK
+This is an important test.
+It confirms that:
+Debian → Apache → HTTP
+is working.
+
+Step 13 — Test Apache Using the Server IP
+Now test using the server's IP address.
+For example:
+curl http://192.168.1.50
+Replace the IP with your actual Debian server IP.
+If Apache is working, you should receive HTML content.
+
+Step 14 — Test from Another Computer
+Now go to another computer on the same network.
+Open a web browser.
+Enter:
+http://192.168.1.50
+Replace the address with your Debian server's actual IP.
+You should see the Apache2 Debian Default Page.
+If you see the Apache default page, congratulations:
+Your Debian Apache web server is working.
+
+Step 15 — Understand Where Apache Website Files Are Stored
+Apache's default website is stored here:
+/var/www/html
+Go there:
+cd /var/www/html
+List the files:
+ls -l
+You should see something similar to:
+index.html
+This is the default webpage.
+
+Step 16 — View the Default Webpage
+Run:
+cat /var/www/html/index.html
+You will see the HTML code that generates the Apache default page.
+
+Step 17 — Create Your Own Webpage
+Now we are going to replace the default page with our own.
+First make a backup:
+cp /var/www/html/index.html /var/www/html/index.html.backup
+Verify:
+ls -l /var/www/html
+You should now have:
+index.html
+index.html.backup
+
+Step 18 — Create a New HTML Page
+Open the webpage:
+nano /var/www/html/index.html
+Delete the existing content.
+Enter:
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Debian Web Server</title>
+</head>
+
+<body>
+
+    <h1>Welcome to My Debian Web Server</h1>
+
+    <p>Apache is running successfully on Debian 13.</p>
+
+    <p>This server is being used for Linux administration training.</p>
+
+</body>
+</html>
+Save:
+CTRL + O
+Press:
+ENTER
+Exit:
+CTRL + X
+
+Step 19 — Check the Webpage
+Run:
+cat /var/www/html/index.html
+Make sure your HTML is displayed correctly.
+
+Step 20 — Test Apache Again
+You normally do not need to restart Apache when you only change an HTML file.
+Run:
+curl http://localhost
+You should now see your new webpage content.
+
+Step 21 — Test from the Browser
+From another computer, open:
+http://192.168.1.50
+You should now see:
+Welcome to My Debian Web Server
+with your message underneath.
+
+Step 22 — Configure the Firewall
+If you are using UFW, check its status:
+ufw status
+If UFW is not installed:
+apt install ufw
+Before enabling the firewall, allow SSH so that you do not lock yourself out:
+ufw allow ssh
+Allow HTTP:
+ufw allow 80/tcp
+Then enable UFW:
+ufw enable
+Check:
+ufw status
+You should see something similar to:
+22/tcp    ALLOW
+80/tcp    ALLOW
+
+Step 23 — Understand Apache's Important Directories
+As a Linux administrator, you should know these locations:
+/etc/apache2/
+Apache configuration.
+/var/www/html/
+Default website files.
+/var/log/apache2/
+Apache logs.
+/etc/apache2/sites-available/
+Available website configurations.
+/etc/apache2/sites-enabled/
+Enabled website configurations.
+
+Step 24 — Understand Apache Logs
+Apache has two particularly important logs.
+Access log
+/var/log/apache2/access.log
+View it:
+tail -f /var/log/apache2/access.log
+Now open the website from another computer.
+You should see a new entry appear.
+Press:
+CTRL + C
+to stop watching the log.
+Error log
+/var/log/apache2/error.log
+View it:
+tail -f /var/log/apache2/error.log
+These logs are extremely important when troubleshooting web servers.
+
+Step 25 — Create a Virtual Host
+Now we move from a basic Apache installation to a more realistic configuration.
+Instead of using only:
+/var/www/html
+we will create a dedicated website:
+training.local
+Its website files will be:
+/var/www/training
+Create the directory:
+mkdir -p /var/www/training
+
+Step 26 — Create the Website
+Create an HTML file:
+nano /var/www/training/index.html
+Enter:
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debian Training Website</title>
+</head>
+
+<body>
+
+    <h1>Debian Linux Training</h1>
+
+    <p>Welcome to the Debian Apache training website.</p>
+
+</body>
+</html>
+Save and exit.
+
+Step 27 — Set Ownership
+Set the website directory ownership:
+chown -R www-data:www-data /var/www/training
+Check:
+ls -ld /var/www/training
+www-data is the account commonly used by Debian's Apache process.
+
+Step 28 — Create the Virtual Host Configuration
+Create:
+nano /etc/apache2/sites-available/training.conf
+Enter:
+<VirtualHost *:80>
+
+    ServerName training.local
+
+    DocumentRoot /var/www/training
+
+    ErrorLog ${APACHE_LOG_DIR}/training_error.log
+    CustomLog ${APACHE_LOG_DIR}/training_access.log combined
+
+</VirtualHost>
+Save and exit.
+
+Step 29 — Enable the Website
+Run:
+a2ensite training.conf
+You should see a message indicating the site has been enabled.
+
+Step 30 — Disable the Default Website
+Run:
+a2dissite 000-default.conf
+This disables the default Apache website.
+
+Step 31 — Test Apache Configuration
+Always test Apache configuration before restarting or reloading it.
+Run:
+apache2ctl configtest
+You want:
+Syntax OK
+This is an important administrator habit.
+
+Step 32 — Reload Apache
+If the configuration test says:
+Syntax OK
+reload Apache:
+systemctl reload apache2
+Check status:
+systemctl status apache2
+You want:
+Active: active (running)
+
+Step 33 — Configure the Client Computer
+For a real DNS environment, training.local would normally be resolved by DNS.
+For this training lab, we can temporarily configure the client computer's hosts file.
+On the client computer, map:
+192.168.1.50 training.local
+The exact location depends on the client operating system.
+Then open:
+http://training.local
+You should see:
+Debian Linux Training
+
+Step 34 — Verify the Virtual Host
+From the Debian server:
+curl http://training.local
+If DNS/hosts resolution is configured correctly, you should receive your webpage.
+You can also test Apache directly:
+curl -H "Host: training.local" http://127.0.0.1
+This tests whether Apache selects the correct virtual host based on the HTTP Host header.
+
+Step 35 — Check Enabled Apache Sites
+Run:
+ls -l /etc/apache2/sites-enabled/
+You should see a link similar to:
+training.conf -> ../sites-available/training.conf
+This demonstrates an important Debian Apache concept:
+sites-available
+       |
+       | a2ensite
+       v
+sites-enabled
+       |
+       v
+Apache
+
+Step 36 — Check Apache Modules
+List enabled modules:
+apache2ctl -M
+You will see modules such as:
+mpm_event_module
+auth_basic_module
+dir_module
+mime_module
+Apache is modular, meaning functionality can be enabled or disabled as required.
+
+Step 37 — Final Verification
+Run these commands one by one:
+Apache status
+systemctl status apache2
+Apache configuration
+apache2ctl configtest
+Expected:
+Syntax OK
+Port 80
+ss -tulnp | grep :80
+Website
+curl http://localhost
+IP address
+ip -br addr
+Firewall
+ufw status
+Website files
+ls -l /var/www/training
+
+Final Lab Architecture
+At this point your training environment should look like:
+                    Network
+                       |
+                       |
+              192.168.1.0/24
+                       |
+          +------------+------------+
+          |                         |
+          |                         |
+   Client Computer           Debian 13 Server
+                                  |
+                           192.168.1.50
+                                  |
+                               Apache2
+                                  |
+                       +----------+----------+
+                       |                     |
+                training.local        TCP Port 80
+                       |
+                /var/www/training
+                       |
+                  index.html
+Commands you should now know
+Command
+Purpose
+apt update
+Update package information
+apt install apache2
+Install Apache
+systemctl status apache2
+Check Apache
+systemctl start apache2
+Start Apache
+systemctl enable apache2
+Start Apache at boot
+ss -tulnp
+Check listening ports
+curl
+Test HTTP connectivity
+apache2ctl configtest
+Test configuration
+a2ensite
+Enable a website
+a2dissite
+Disable a website
+a2enmod
+Enable Apache module
+a2dismod
+Disable Apache module
+tail
+Monitor logs
+ufw
+Manage firewall
+Important training principle
+For every service you install, 
+Install → Configure → Start → Enable → Test → Secure → Monitor → Troubleshoot
+That sequence is much more valuable than simply memorizing Apache commands.
+
