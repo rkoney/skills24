@@ -1,0 +1,564 @@
+
+Part 1: Internal Network (int-srv01)
+This server provides LDAP, CA, Samba file sharing, and internal DNS.
+LDAP
+apt install slapd ldap-utils -y
+dpkg-reconfigure slapd
+# Domain: int.redseason.org
+# Organization: ClearSky
+# Admin password: password
+Create OU and users (users.ldif):
+dn: ou=Employees,dc=int,dc=redseason,dc=org
+objectClass: organizationalUnit
+ou: Employees
+
+dn: uid=jamie,ou=Employees,dc=int,dc=redseason,dc=org
+objectClass: inetOrgPerson
+uid: jamie
+cn: Jamie Oliver
+sn: Oliver
+mail: jamie.oliver@dmz.redseason.org
+userPassword: Skill39@Lyon
+
+dn: uid=peter,ou=Employees,dc=int,dc=redseason,dc=org
+objectClass: inetOrgPerson
+uid: peter
+cn: Peter Fox
+sn: Fox
+mail: peter.fox@dmz.redseason.org
+userPassword: password
+
+dn: uid=admin,dc=int,dc=redseason,dc=org
+objectClass: inetOrgPerson
+uid: admin
+cn: Administrator
+sn: Administrator
+userPassword: password
+ldapadd -x -D "cn=admin,dc=int,dc=redseason,dc=org" -W -f users.ldif
+Best practice: hash passwords with slappasswd and store as userPassword: {SSHA}... instead of plaintext.
+CA (OpenSSL)
+mkdir -p /root/ca/{root,sub} /opt/grading/ca
+cd /root/ca/root
+
+# Root CA
+openssl genrsa -out root.key 4096
+openssl req -x509 -new -nodes -key root.key -sha256 -days 3650 \
+  -subj "/CN=ClearSky Root CA/C=CH/O=ClearSky" -out root.pem
+cp root.pem /opt/grading/ca/ca.pem
+
+# Sub-CA
+cd /root/ca/sub
+openssl genrsa -out sub.key 4096
+openssl req -new -key sub.key -subj "/CN=ClearSky Sub CA/C=CH/O=ClearSky" -out sub.csr
+openssl x509 -req -in sub.csr -CA ../root/root.pem -CAkey ../root/root.key \
+  -CAcreateserial -days 1825 -sha256 \
+  -extfile <(printf "basicConstraints=CA:TRUE") -out sub.pem
+cp sub.pem /opt/grading/ca/services.pem
+
+# Web certificate
+openssl genrsa -out web.key 2048
+openssl req -new -key web.key -subj "/CN=www.dmz.redseason.org" -out web.csr
+openssl x509 -req -in web.csr -CA sub.pem -CAkey sub.key -CAcreateserial -days 825 \
+  -extfile <(printf "subjectAltName=DNS:www.dmz.redseason.org") -out web.pem
+cat web.pem sub.pem root.pem > /opt/grading/ca/web.pem
+
+# Mail certificate
+openssl genrsa -out mail.key 2048
+openssl req -new -key mail.key -subj "/CN=mail.dmz.redseason.org" -out mail.csr
+openssl x509 -req -in mail.csr -CA sub.pem -CAkey sub.key -CAcreateserial -days 825 \
+  -extfile <(printf "subjectAltName=DNS:mail.dmz.redseason.org") -out mail.pem
+cat mail.pem sub.pem root.pem > /opt/grading/ca/mail.pem
+Copy web.key / mail.key to the servers that need them via scp (root SSH key is pre-provisioned on all hosts).
+Samba
+apt install samba -y
+mkdir -p /srv/public /srv/internal
+chmod 777 /srv/public
+chmod 770 /srv/internal
+useradd -M -s /usr/sbin/nologin jamie
+smbpasswd -a jamie   # password
+/etc/samba/smb.conf:
+[global]
+   workgroup = WORKGROUP
+   security = user
+   map to guest = Bad User
+
+[public]
+   path = /srv/public
+   guest ok = yes
+   read only = yes
+   valid users = jamie
+   write list = jamie
+
+[internal]
+   path = /srv/internal
+   guest ok = no
+   read only = no
+   valid users = jamie
+/public: everyone (including guests) can read; only jamie (logged-in) can write, via write list. /internal: guest ok = no blocks guests entirely; only authenticated valid users get read/write.
+systemctl restart smbd nmbd
+
+Internal DNS (BIND9)
+apt install bind9 bind9utils -y
+/etc/bind/named.conf.local:
+zone "int.redseason.org" {
+    type master;
+    file "/etc/bind/db.int.redseason.org";
+};
+zone "10.1.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.10.1.10";
+};
+
+zone "dmz.redseason.org" {
+    type slave;
+    file "/var/cache/bind/db.dmz.redseason.org";
+    masters { 10.1.20.21; };
+};
+zone "20.1.10.in-addr.arpa" {
+    type slave;
+    file "/var/cache/bind/db.20.1.10";
+    masters { 10.1.20.21; };
+};
+/etc/bind/db.int.redseason.org (example, abbreviated):
+$TTL 604800
+@   IN SOA int-srv01.int.redseason.org. admin.int.redseason.org. (2 604800 86400 2419200 604800)
+    IN NS  int-srv01.int.redseason.org.
+
+int-srv01 IN A 10.1.10.10
+fw        IN A 10.1.10.1
+
+_ldap._tcp.auth IN SRV 10 50 389 int-srv01.int.redseason.org.
+/etc/bind/named.conf.options — enable recursion for internal clients:
+options {
+    directory "/var/cache/bind";
+    recursion yes;
+    allow-recursion { 10.1.10.0/24; 10.1.30.0/24; };
+    dnssec-validation auto;
+    listen-on { any; };
+    listen-on-v6 { any; };
+};
+systemctl restart bind9
+
+
+
+Part 2: Firewall (fw)
+Router, firewall (nftables), transparent proxy (squid), and VPN server (WireGuard).
+IP Forwarding
+/etc/sysctl.conf:
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+sysctl -p
+nftables
+apt install nftables -y
+/etc/nftables.conf (core rules):
+#!/usr/sbin/nft -f
+flush ruleset
+
+define WAN = eth0
+define INT = eth1
+define DMZ = eth2
+define VPN = wg0
+
+table inet filter {
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+
+    ct state established,related accept
+
+    # INT/DMZ -> internet
+    iifname { $INT, $DMZ } oifname $WAN accept
+    # INT -> DMZ
+    iifname $INT oifname $DMZ accept
+    # VPN -> INT/DMZ
+    iifname $VPN oifname { $INT, $DMZ } accept
+    # mail server -> LDAP on int-srv01
+    ip saddr 10.1.20.10 ip daddr 10.1.10.10 tcp dport 389 accept
+
+    # port forwards (destined for DMZ HA proxy)
+    iifname $WAN ip daddr 10.1.20.20 tcp dport { 80, 443 } accept
+    iifname $WAN ip daddr 10.1.20.20 udp dport 53 accept
+    iifname $WAN ip daddr 10.1.20.20 tcp dport 53 accept
+  }
+  chain input {
+    type filter hook input priority 0; policy accept;
+  }
+}
+
+table ip nat {
+  chain postrouting {
+    type nat hook postrouting priority 100;
+    oifname $WAN masquerade
+  }
+  chain prerouting {
+    type nat hook prerouting priority -100;
+    iifname $WAN tcp dport 80 dnat to 10.1.20.20:80
+    iifname $WAN tcp dport 443 dnat to 10.1.20.20:443
+    iifname $WAN udp dport 53 dnat to 10.1.20.20:53
+    iifname $WAN tcp dport 53 dnat to 10.1.20.20:53
+  }
+}
+
+table ip6 filter {
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+    ct state established,related accept
+    iifname { $INT, $DMZ } oifname $WAN accept
+    iifname $INT oifname $DMZ accept
+    iifname $VPN oifname { $INT, $DMZ } accept
+    iifname $WAN ip6 daddr 2001:db8:1001:20::20 tcp dport { 80, 443 } accept
+  }
+}
+systemctl enable --now nftables
+
+WireGuard VPN
+apt install wireguard -y
+wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
+wg genpsk > /etc/wireguard/psk.key
+/etc/wireguard/wg0.conf:
+[Interface]
+Address = 10.1.30.1/24, 2001:db8:1001:30::1/64
+ListenPort = 51820
+PrivateKey = <server_private_key>
+
+[Peer]
+PublicKey = <client_public_key>
+PresharedKey = <psk>
+AllowedIPs = 10.1.30.2/32, 2001:db8:1001:30::2/128
+systemctl enable --now wg-quick@wg0
+Client-side config should route all traffic through the tunnel (AllowedIPs = 0.0.0.0/0, ::/0) and set DNS = 10.1.10.10 so internal names resolve.
+Transparent Proxy (Squid)
+apt install squid -y
+/etc/squid/squid.conf additions:
+http_port 3129 intercept
+acl int_net src 10.1.10.0/24 10.1.30.0/24
+http_access allow int_net
+reply_header_add X-Secured-By "clearsky-proxy"
+Redirect INT/VPN traffic on port 80 into the proxy (add to nftables prerouting):
+iifname { $INT, $VPN } tcp dport 80 redirect to :3129
+systemctl restart squid
+
+Part 3: DMZ
+mail.dmz.redseason.org
+Postfix (SMTP) + Dovecot (IMAP), authenticated against LDAP on int-srv01, TLS secured with the CA-issued mail.pem.
+apt install postfix dovecot-imapd dovecot-ldap mailutils -y
+Copy the mail certificate/key generated in Part 1 onto this host:
+cp mail.key /etc/ssl/private/mail.key
+cp mail.pem /etc/ssl/certs/mail.pem
+chmod 600 /etc/ssl/private/mail.key
+Postfix — /etc/postfix/main.cf
+# Identity
+myhostname = mail.dmz.redseason.org
+mydomain = dmz.redseason.org
+myorigin = $mydomain
+mydestination = $myhostname, dmz.redseason.org, localhost
+inet_interfaces = all
+inet_protocols = ipv4, ipv6
+
+# TLS (server)
+smtpd_tls_cert_file = /etc/ssl/certs/mail.pem
+smtpd_tls_key_file = /etc/ssl/private/mail.key
+smtpd_use_tls = yes
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = yes
+
+# TLS (outbound / client)
+smtp_tls_security_level = may
+
+# SASL auth via Dovecot socket (for authenticated relay/send)
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
+smtpd_recipient_restrictions =
+    permit_sasl_authenticated,
+    permit_mynetworks,
+    reject_unauth_destination
+
+# Mailbox delivery (Dovecot LMTP)
+virtual_transport = lmtp:unix:private/dovecot-lmtp
+
+# Aliases (used by the echo auto-responder)
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+/etc/postfix/master.cf — ensure submission (587) is enabled for client sending, uncomment/add:
+submission inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+systemctl restart postfix
+
+Dovecot — IMAP + LDAP auth + LMTP delivery
+/etc/dovecot/dovecot.conf (top-level, ensure protocols include lmtp):
+protocols = imap lmtp
+listen = *, ::
+/etc/dovecot/conf.d/10-mail.conf:
+mail_location = maildir:/var/mail/vhosts/%d/%n
+mail_privileged_group = mail
+/etc/dovecot/conf.d/10-auth.conf:
+disable_plaintext_auth = yes
+auth_mechanisms = plain login
+!include auth-ldap.conf.ext
+/etc/dovecot/conf.d/auth-ldap.conf.ext:
+passdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
+}
+userdb {
+  driver = ldap
+  args = /etc/dovecot/dovecot-ldap.conf.ext
+}
+/etc/dovecot/dovecot-ldap.conf.ext — binds to int-srv01, maps LDAP mail attribute to the mailbox user:
+hosts = 10.1.10.10
+base = ou=Employees,dc=int,dc=redseason,dc=org
+auth_bind = yes
+auth_bind_userdn = uid=%n,ou=Employees,dc=int,dc=redseason,dc=org
+
+user_attrs = mail=user,mail=home=/var/mail/vhosts/%d/%n
+user_filter = (uid=%n)
+pass_filter = (uid=%n)
+pass_attrs = uid=user
+user_attrs maps LDAP's mail attribute (e.g. jamie.oliver@dmz.redseason.org) directly to Dovecot's mailbox user, satisfying "the mail attribute of the LDAP user should be used as the mail address."
+/etc/dovecot/conf.d/10-ssl.conf — TLS required, using the CA-issued certificate:
+ssl = required
+ssl_cert = </etc/ssl/certs/mail.pem
+ssl_key = </etc/ssl/private/mail.key
+/etc/dovecot/conf.d/10-master.conf — expose the SASL auth socket to Postfix and enable LMTP delivery:
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
+}
+
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+/etc/dovecot/conf.d/20-imap.conf — confirm standard ports are active (143 plain, 993 IMAPS):
+protocol imap {
+  mail_max_userip_connections = 20
+}
+mkdir -p /var/mail/vhosts/dmz.redseason.org
+chown -R vmail:vmail /var/mail/vhosts   # or dovecot's mail user per your local setup
+systemctl restart dovecot
+Result: IMAP (143) and IMAPS (993) are both served by Dovecot, secured with the ClearSky-issued mail.pem chain; users authenticate with their LDAP uid (e.g. jamie) and land in the mailbox tied to their LDAP mail attribute.
+Auto-responder for echo@dmz.redseason.org — via a mail alias piped to a script:
+/etc/aliases:
+echo: "|/usr/local/bin/echo_reply.sh"
+/usr/local/bin/echo_reply.sh:
+#!/bin/bash
+MSG=$(cat)
+SENDER=$(echo "$MSG" | grep -i '^From:' | head -1 | sed 's/From: //')
+echo "$MSG" | mail -s "Re: Echo" -r echo@dmz.redseason.org "$SENDER"
+chmod +x /usr/local/bin/echo_reply.sh
+newaliases
+
+Backup
+mkdir /opt/backup
+mount /dev/sdb /opt/backup
+echo "/dev/sdb /opt/backup ext4 defaults 0 2" >> /etc/fstab
+/opt/backup.sh:
+#!/bin/bash
+DATE=$(date +%F)
+mkdir -p /opt/backup/$DATE
+rsync -a /var/mail/ /opt/backup/$DATE/mail/
+cp -r /etc/postfix /etc/dovecot /opt/backup/$DATE/config/
+chmod +x /opt/backup.sh
+
+SSH Certificate Authentication
+On the CA host, generate a user CA key pair and sign root's public key:
+ssh-keygen -t ed25519 -f /etc/ssh/ca_user_key
+ssh-keygen -s /etc/ssh/ca_user_key -I root_cert -n root -V +52w /root/.ssh/id_ed25519.pub
+On mail server /etc/ssh/sshd_config:
+TrustedUserCAKeys /etc/ssh/ca_user_key.pub
+On ha-prx01, reference the signed certificate for connections to the mail server — ~/.ssh/config:
+Host mail.dmz.redseason.org
+  IdentityFile /root/.ssh/id_ed25519
+  CertificateFile /root/.ssh/id_ed25519-cert.pub
+systemctl restart sshd   # on mail server
+
+ha-prx01 / ha-prx02
+High-availability reverse proxy (HAProxy + keepalived) and primary/secondary DNS (BIND9).
+apt install haproxy keepalived bind9 -y
+
+keepalived (VRRP)
+/etc/keepalived/keepalived.conf — ha-prx01 = MASTER (higher priority), ha-prx02 = BACKUP:
+vrrp_instance VI_1 {
+    state MASTER
+    interface eth0
+    virtual_router_id 51
+    priority 150
+    virtual_ipaddress {
+        10.1.20.20/24
+        2001:db8:1001:20::20/64
+    }
+    track_script { chk_haproxy }
+}
+vrrp_script chk_haproxy {
+    script "pidof haproxy"
+    interval 2
+}
+On ha-prx02, use state BACKUP and a lower priority (e.g. 100) — same virtual_router_id.
+HAProxy
+/etc/haproxy/haproxy.cfg:
+frontend http_front
+    bind *:80
+    redirect scheme https code 301
+
+frontend https_front
+    bind *:443 ssl crt /etc/ssl/private/web-combined.pem
+    default_backend web_back
+    http-response add-header via-proxy ha-prx01.dmz.redseason.org
+
+backend web_back
+    balance roundrobin
+    server web01 10.1.20.31:80 check
+    server web02 10.1.20.32:80 check
+Combine web.key + the web.pem chain into a single PEM (web-combined.pem) for HAProxy's bind ... ssl crt. Replace via-proxy hostname value with ha-prx02.dmz.redseason.org on the second node.
+Reverse Proxy — Nginx alternative
+If you'd rather use Nginx instead of HAProxy for the reverse proxy role, this achieves the same requirements (HTTP→HTTPS redirect, load balancing across web01/web02, TLS termination, via-proxy header, failover to the other web server).
+apt install nginx -y
+Place the certificate chain on the host:
+cp web.key /etc/ssl/private/web.key
+cp web.pem /etc/ssl/certs/web.pem   # already contains web+sub+root chain from Part 1
+chmod 600 /etc/ssl/private/web.key
+/etc/nginx/sites-available/dmz-proxy:
+upstream web_backend {
+    server 10.1.20.31:80 max_fails=2 fail_timeout=5s;
+    server 10.1.20.32:80 max_fails=2 fail_timeout=5s;
+}
+
+# Plain HTTP -> redirect to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.dmz.redseason.org;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS termination + reverse proxy
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name www.dmz.redseason.org;
+
+    ssl_certificate     /etc/ssl/certs/web.pem;
+    ssl_certificate_key /etc/ssl/private/web.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    location / {
+        proxy_pass http://web_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # troubleshooting header identifying which proxy node served the request
+        add_header via-proxy "ha-prx01.dmz.redseason.org" always;
+
+        # automatic failover if one web server is down
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+    }
+}
+ln -s /etc/nginx/sites-available/dmz-proxy /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
+On ha-prx02, deploy the identical config but change the add_header via-proxy value to ha-prx02.dmz.redseason.org. proxy_next_upstream plus the upstream block's max_fails/fail_timeout give Nginx equivalent failover behavior to HAProxy's health checks — if web01 stops responding, requests are automatically retried against web02. The virtual-IP takeover on proxy failure (10.1.20.20) is still handled by keepalived regardless of whether you run HAProxy or Nginx as the actual proxy process — just point keepalived's chk_haproxy script at pidof nginx instead:
+vrrp_script chk_haproxy {
+    script "pidof nginx"
+    interval 2
+}
+
+DNS (primary/secondary)
+ha-prx01 (primary) — /etc/bind/named.conf.local:
+zone "dmz.redseason.org" {
+    type master;
+    file "/etc/bind/db.dmz.redseason.org";
+    allow-transfer { 10.1.20.22; 10.1.10.10; };
+};
+zone "20.1.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.20.1.10";
+    allow-transfer { 10.1.20.22; 10.1.10.10; };
+};
+Add the www.dmz.redseason.org alias (CNAME, not A record) in the zone file:
+www   IN CNAME  prx-vrrp.dmz.redseason.org.
+ha-prx02 (secondary):
+zone "dmz.redseason.org" {
+    type slave;
+    file "/var/cache/bind/db.dmz.redseason.org";
+    masters { 10.1.20.21; };
+};
+Restrict answers to authoritative zones only (named.conf.options on both):
+options {
+    recursion no;
+    allow-query { any; };
+};
+systemctl restart bind9 haproxy keepalived
+
+web01 / web02
+Web servers, configured via Ansible from ha-prx01.
+Install a web server (nginx used here) listening on port 80 only (TLS terminates at the reverse proxy), serving /opt/wwwroot/.
+/opt/ansible/configure-web02.yml (run from ha-prx01):
+- hosts: web02.dmz.redseason.org
+  become: yes
+  tasks:
+    - name: install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: deploy site config
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+              root /opt/wwwroot;
+              index main.html;
+
+              location /whoami {
+                  return 200 '{{ ansible_hostname }}';
+                  add_header Content-Type text/plain;
+              }
+
+              error_page 404 /404.html;
+              location = /404.html {
+                  internal;
+              }
+          }
+
+    - name: enable + restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+Ansible inventory (/opt/ansible/hosts) should target web02.dmz.redseason.org by IP/hostname with SSH access from ha-prx01 (using the pre-provisioned root key).
+Apply/test:
+ansible-playbook /opt/ansible/configure-web02.yml
+Configure web01 identically (manually or via a matching playbook) — the exam only requires the exact configure-web02.yml command to work against web02.
+
+Part 4: Client (jamie-ws01)
+Remote workstation for the ClearSky CEO.
+General Configuration
+apt install task-gnome-desktop -y
+useradd -m -s /bin/bash jamie
+passwd jamie   # Skill39@Lyon
+WireGuard via NetworkManager:
+	•	Prepare a client config (wg0-client.conf) with the client's private key, server's public key, PSK, and AllowedIPs = 0.0.0.0/0, ::/0 (route all traffic through tunnel), DNS = 10.1.10.10.
+	•	Settings → Network → + → Import from file → select wg0-client.conf → Connect.
+Browser & Mail Client
+apt install firefox-esr thunderbird -y
+	•	Import root CA: Firefox → Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import → ca.pem (trust for websites); Thunderbird → Settings → Privacy & Security → Certificates → Manage Certificates → Authorities → Import.
+	•	Firefox homepage: Settings → Home → Homepage and new windows → Custom URLs → https://www.dmz.redseason.org.
+	•	Thunderbird mail setup for Jamie:
+	◦	Name: Jamie Oliver
+	◦	Email: jamie.oliver@dmz.redseason.org
+	◦	Incoming (IMAP): mail.dmz.redseason.org, port 993, SSL/TLS
+	◦	Username: jamie, Password: password
