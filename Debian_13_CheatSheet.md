@@ -1,0 +1,353 @@
+Practical Debian 13 deployment cheat sheet for the core services: **DNS (BIND9), LDAP (OpenLDAP), Samba, Firewall (nftables), and DMZ DNS** using the naming conventions and IP addresses.
+
+# 1\. DNS Server (int-srv01.int.ticapo.org)
+
+## Install BIND9
+
+1 apt update
+
+2 apt install -y bind9 bind9-utils bind9-dnsutils
+
+## Forward Zone
+
+Create:
+
+1 nano /etc/bind/db.int.ticapo.org
+
+Content Example for Forward Zone created above:
+
+1 \$TTL 86400
+
+2 @ IN SOA int-srv01.int.ticapo.org. root.int.ticapo.org. (
+
+3 2026010101
+
+4 3600
+
+5 1800
+
+6 604800
+
+7 86400 )
+
+8
+
+9 @ IN NS int-srv01.int.ticapo.org.
+
+10
+
+11 int-srv01 IN A 10.1.10.10
+
+12 int-srv01 IN AAAA 2001:db8:1001:10::10
+
+13
+
+14 fw IN A 10.1.10.1
+
+15 fw IN AAAA 2001:db8:1001:10::1
+
+16
+
+17 ; LDAP SRV record
+
+18 \_auth.\_tcp IN SRV 10 50 389 int-srv01.int.ticapo.org.
+
+Requirement: LDAP service record for auth.int.ticapo.org pointing to int-srv01 TCP/389 priority 10 weight 50.
+
+Alternative commonly used syntax:
+
+1 \_ldap.\_tcp.auth IN SRV 10 50 389 int-srv01.int.ticapo.org.
+
+## Reverse Zone IPv4 (NOTE: unlike windows you have to reverse yourself)
+
+| 1 nano /etc/bind/db.10.1.10                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 \$TTL 86400<br><br>2 @ IN SOA int-srv01.int.ticapo.org. root.int.ticapo.org. (<br><br>3 2026010101<br><br>4 3600<br><br>5 1800<br><br>6 604800<br><br>7 86400 )<br><br>8<br><br>9 @ IN NS int-srv01.int.ticapo.org.<br><br>10<br><br>11 10 IN PTR int-srv01.int.ticapo.org.<br><br>12 1 IN PTR fw.ticapo.org. |     |
+
+## named.conf.local
+
+| 1 nano /etc/bind/named.conf.local                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 zone "int.ticapo.org" {<br><br>2 type master;<br><br>3 file "/etc/bind/db.int.ticapo.org";<br><br>4 };<br><br>5<br><br>6 zone "10.1.10.in-addr.arpa" {<br><br>7 type master;<br><br>8 file "/etc/bind/db.10.1.10";<br><br>9 };<br><br>10<br><br>11 zone "dmz.ticapo.org" {<br><br>12 type secondary;<br><br>13 masters { 10.1.20.21; };<br><br>14 file "/var/cache/bind/db.dmz.ticapo.org";<br><br>15 }; |     |
+
+## Enable Recursion
+
+| 1 nano /etc/bind/named.conf.options                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 options {<br><br>2 recursion yes;<br><br>3 allow-recursion {<br><br>4 10.1.10.0/24;<br><br>5 10.1.30.0/24;<br><br>6 localhost;<br><br>7 };<br><br>8 }; |     |
+
+## Verify
+
+1 named-checkconf
+
+2 named-checkzone int.ticapo.org /etc/bind/db.int.ticapo.org
+
+3
+
+4 systemctl restart bind9
+
+5 systemctl enable bind9
+
+6
+
+7 dig @127.0.0.1 int-srv01.int.ticapo.org
+
+8 dig SRV \_ldap.\_tcp.auth.int.ticapo.org
+
+## END DNS SERVER
+
+# 2\. LDAP Server (OpenLDAP)
+
+## Install
+
+1 apt update
+
+2
+
+3 apt install -y slapd ldap-utils
+
+4 dpkg-reconfigure slapd
+
+Suggested values:
+
+1 Domain: int.ticapo.org
+
+2 Base DN: dc=int,dc=ticapo,dc=org
+
+Requirement from LDAP table.
+
+## Create OUs
+
+1 dn: ou=Employees,dc=int,dc=ticapo,dc=org
+
+2 objectClass: organizationalUnit
+
+3 ou: Employees
+
+Import:
+
+1 ldapadd -x -D cn=admin,dc=int,dc=ticapo,dc=org -W -f ou.ldif
+
+## User Jamie
+
+1 dn: uid=jamie,ou=Employees,dc=int,dc=ticapo,dc=org
+
+2 objectClass: inetOrgPerson
+
+3 objectClass: posixAccount
+
+4 objectClass: shadowAccount
+
+5
+
+6 cn: Jamie Oliver
+
+7 sn: Oliver
+
+8 uid: jamie
+
+9 uidNumber: 10001
+
+10 gidNumber: 10001
+
+11 homeDirectory: /home/jamie
+
+12 loginShell: /bin/bash
+
+13 mail: <jamie.oliver@dmz.ticapo.org>
+
+14 userPassword: MasterP@ss
+
+## User Peter
+
+1 dn: uid=peter,ou=Employees,dc=int,dc=ticapo,dc=org
+
+2 objectClass: inetOrgPerson
+
+3 objectClass: posixAccount
+
+4
+
+5 cn: Peter Fox
+
+6 sn: Fox
+
+7 uid: peter
+
+8 uidNumber: 10002
+
+9 gidNumber: 10002
+
+10 homeDirectory: /home/peter
+
+11 mail: <peter.fox@dmz.ticapo.org>
+
+12 userPassword: MasterP@ss
+
+## Verify
+
+1 ldapsearch -x -LLL \\
+
+2 -b dc=int,dc=ticapo,dc=org
+
+# END LDAP Server
+
+# 3\. Samba File Server
+
+Requirement:
+
+- public share writable only by authenticated users
+- guest read access
+- internal share authenticated users only
+
+## Install
+
+1 apt install -y samba samba-common-bin
+
+## Create Linux User
+
+1 useradd -m jamie
+
+2
+
+3 passwd jamie
+
+Password:
+
+1 MasterP@ss
+
+## Samba Password
+
+1 smbpasswd -a jamie
+
+## Create Share Directories
+
+1 mkdir -p /public
+
+2 mkdir -p /internal
+
+3
+
+4 chmod 777 /public
+
+5 chmod 770 /internal
+
+## Samba Configuration
+
+| 1 nano /etc/samba/smb.conf                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 \[global\]<br><br>2 workgroup = WORKGROUP<br><br>3 security = user<br><br>4 map to guest = Bad User<br><br>5<br><br>6 \[public\]<br><br>7 path = /public<br><br>8 browseable = yes<br><br>9 guest ok = yes<br><br>10 read only = yes<br><br>11 write list = jamie<br><br>12<br><br>13 \[internal\]<br><br>14 path = /internal<br><br>15 browseable = yes<br><br>16 guest ok = no<br><br>17 read only = no<br><br>18 valid users = jamie |
+
+## Restart
+
+1 testparm
+
+2
+
+3 systemctl restart smbd
+
+4 systemctl enable smbd
+
+## Test
+
+1 smbclient -L localhost -U jamie
+
+# END SAMBA FIle Server
+
+# 4\. DMZ DNS (ha-prx01 Primary)
+
+Requirement:
+
+- primary DNS = ha-prx01
+- secondary DNS = ha-prx02
+- use zone transfers
+- alias **<www.dmz.ticapo.org>** to **prx-vrrp.dmz.ticapo.org** using CNAME only
+
+## Install
+
+1 apt install -y bind9
+
+## Zone File
+
+| 1 nano /etc/bind/db.dmz.ticapo.org                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 @ IN SOA haprx01.dmz.ticapo.org. root.dmz.ticapo.org. (<br><br>2 2026010101<br><br>3 3600<br><br>4 1800<br><br>5 604800<br><br>6 86400 )<br><br>7<br><br>8 @ IN NS haprx01.dmz.ticapo.org.<br><br>9 @ IN NS haprx02.dmz.ticapo.org.<br><br>10<br><br>11 mail IN A 10.1.20.10<br><br>12 haprx01 IN A 10.1.20.21<br><br>13 haprx02 IN A 10.1.20.22<br><br>14<br><br>15 prx-vrrp IN A 10.1.20.20<br><br>16<br><br>17 web01 IN A 10.1.20.31<br><br>18 web02 IN A 10.1.20.32<br><br>19<br><br>20 www IN CNAME prx-vrrp.dmz.ticapo.org. |
+
+## Primary DNS
+
+1 zone "dmz.ticapo.org" {
+
+2 type master;
+
+3 file "/etc/bind/db.dmz.ticapo.org";
+
+4 allow-transfer { 10.1.20.22; };
+
+5 };
+
+## Secondary DNS
+
+1 zone "dmz.ticapo.org" {
+
+2 type slave;
+
+3 masters { 10.1.20.21; };
+
+4 file "/var/cache/bind/slaves/db.dmz.ticapo.org";
+
+5 };
+
+## Restart
+
+1 systemctl restart bind9
+
+# 5\. Firewall (fw.ticapo.org)
+
+## Install nftables
+
+1 apt install -y nftables
+
+2 systemctl enable nftables
+
+## Enable Routing
+
+| 1 nano /etc/sysctl.conf                                         |
+| --------------------------------------------------------------- |
+| 1 net.ipv4.ip_forward=1<br><br>2 net.ipv6.conf.all.forwarding=1 |
+
+Apply:
+
+1 sysctl -p
+
+## Basic Ruleset
+
+| 1 nano /etc/nftables.conf                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 flush ruleset<br><br>2<br><br>3 table inet filter {<br><br>4<br><br>5 chain input {<br><br>6 type filter hook input priority 0;<br><br>7 policy drop;<br><br>8<br><br>9 ct state established,related accept<br><br>10 iif lo accept<br><br>11 }<br><br>12<br><br>13 chain forward {<br><br>14 type filter hook forward priority 0;<br><br>15 policy drop;<br><br>16<br><br>17 ct state established,related accept<br><br>18<br><br>19 # INT -> Internet<br><br>20 ip saddr 10.1.10.0/24 accept<br><br>21<br><br>22 # DMZ -> Internet<br><br>23 ip saddr 10.1.20.0/24 accept<br><br>24<br><br>25 # INT -> DMZ<br><br>26 ip saddr 10.1.10.0/24 ip daddr 10.1.20.0/24 accept<br><br>27<br><br>28 # VPN<br><br>29 ip saddr 10.1.30.0/24 accept<br><br>30<br><br>31 # Mail -> LDAP<br><br>32 ip saddr 10.1.20.10 ip daddr 10.1.10.10 tcp dport 389 accept<br><br>33 }<br><br>34<br><br>35 }<br><br>36<br><br>37 table ip nat {<br><br>38<br><br>39 chain postrouting {<br><br>40 type nat hook postrouting priority 100;<br><br>41<br><br>42 oifname "eth0" masquerade<br><br>43 }<br><br>44<br><br>45 chain prerouting {<br><br>46 type nat hook prerouting priority -100;<br><br>47<br><br>48 tcp dport 80 dnat to 10.1.20.20<br><br>49 tcp dport 443 dnat to 10.1.20.20<br><br>50<br><br>51 tcp dport 53 dnat to 10.1.20.20<br><br>52 udp dport 53 dnat to 10.1.20.20<br><br>53 }<br><br>54 } |
+
+## Load Rules
+
+1 nft -f /etc/nftables.conf
+
+2
+
+3 systemctl restart nftables
+
+## Verify
+
+1 nft list ruleset
+
+# Important Ticapo Hosts Summary
+
+| Host                     | IPv4                  |
+| ------------------------ | --------------------- |
+| fw.ticapo.org            | 10.1.10.1 / 10.1.20.1 |
+| int-srv01.int.ticapo.org | 10.1.10.10            |
+| mail.dmz.ticapo.org      | 10.1.20.10            |
+| prx-vrrp.dmz.ticapo.org  | 10.1.20.20            |
+| haprx01.dmz.ticapo.org   | 10.1.20.21            |
+| haprx02.dmz.ticapo.org   | 10.1.20.22            |
+| web01.dmz.ticapo.org     | 10.1.20.31            |
+| web02.dmz.ticapo.org     | 10.1.20.32            |
+
+Derived from the topology and addressing table in Technical Design Guide
