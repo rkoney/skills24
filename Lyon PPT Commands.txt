@@ -1,0 +1,347 @@
+DS1 and DS2
+
+int range fa0/1-2
+channel-group 1 mode active
+int port-channel 1
+sw mode trunk
+int g0/2
+sw mode access
+sw mode trunk
+sw trunk allowed vlan all
+
+AS1
+int range g0/1-2
+sw m access
+sw m trunk
+
+ISP1
+int g1/0/1
+des Connection to IR1
+ip add 192.0.2.101 255.255.255.240
+no sh
+int g1/0/2
+des Connection to IR2
+ip add 192.0.2.201 255.255.255.240
+no sh
+int g1/0/3
+des Connection to BR1
+ip add 192.0.2.1 255.255.255.252
+no sh
+int g1/0/4
+Ides Connection to BR2
+ip add 192.0.2.5 255.255.255.252
+no sh
+INT LO 100
+des Loopback 100
+ip add 198.51.100.1 255.255.255.0
+int lo 200
+des Loopback 200
+ip add 203.0.113.1 255.255.255.0
+
+IR1
+int ra g1/0/1-3
+no ip add
+int g1/0/1
+ip add 10.10.0.105 255.255.255.252
+des Connection to CR1
+int g1/0/2
+ip add 10.10.0.109 255.255.255.252
+des Connection to CR1
+int g1/0/3
+ip add 192.0.2.102 255.255.255.240
+des Connection to ISP1
+
+IR2
+int ra g1/0/1-3
+no ip add
+int g1/0/1
+ip add 10.10.0.205 255.255.255.252
+des Connection to CR3
+int g1/0/2
+ip add 10.10.0.209 255.255.255.252
+des Connection to CR4
+int g1/0/3
+ip add 192.0.2.202 255.255.255.240
+des Connection to ISP1
+
+CR1
+int ra g1/0/1-5
+no ip add
+int g1/0/1
+ip add 10.10.0.113 255.255.255.252
+des Connection to CR2
+int g1/0/2
+ip add 10.10.0.121 255.255.255.252
+des Connection to DS1
+int g1/0/3
+ip add 10.10.0.125 255.255.255.252
+des Connection to DS2
+int g1/0/4
+ip add 10.10.0.106 255.255.255.252
+des Connection to IR1
+int g1/0/5
+ip add 10.10.0.117 255.255.255.252
+des Connection to CR4
+
+CR2
+int ra g1/0/1-5
+no ip add
+int g1/0/1
+ip add 10.10.0.114 255.255.255.252
+des Connection to CR1
+int g1/0/2
+ip add 10.10.0.129 255.255.255.252
+des Connection to DS1
+int g1/0/3
+ip add 10.10.0.133 255.255.255.252
+des Connection to DS2
+int g1/0/4
+ip add 10.10.0.110 255.255.255.252
+des Connection to IR1
+int g1/0/5
+ip add 10.10.0.137 255.255.255.252
+des Connection to CR3
+int lo 1
+des Loopback 1
+
+CR3
+int ra g1/0/1-5
+no ip add
+int g1/0/1
+ip add 10.10.0.213 255.255.255.252
+des Connection to CR4
+int g1/0/2
+ip add 10.10.0.221 255.255.255.252
+des Connection to DS3
+int g1/0/3
+ip add 10.10.0.225 255.255.255.252
+des Connection to DS4
+int g1/0/4
+ip add 10.10.0.206 255.255.255.252
+des Connection to IR2
+int g1/0/5
+ip add 10.10.0.138 255.255.255.252
+des Connection to CR2
+int lo 1
+des Loopback 1
+
+CR4
+int ra g1/0/1-5
+no ip add
+int g1/0/1
+ip add 10.10.0.214 255.255.255.252
+des Connection to CR3
+int g1/0/2
+ip add 10.10.0.229 255.255.255.252
+des Connection to DS3
+int g1/0/3
+ip add 10.10.0.233 255.255.255.252
+des Connection to DS4
+int g1/0/4
+ip add 10.10.0.210 255.255.255.252
+des Connection to IR2
+int g1/0/5
+ip add 10.10.0.118 255.255.255.252
+des Connection to CR1
+int lo 1
+des Loopback 1
+
+
+DS1
+int fa0/3
+no ip add
+sw
+int g0/1
+des Connection to CR1
+no ip add
+ip add 10.10.0.122 255.255.255.252
+int g0/2
+no sw
+ip add 10.10.0.130 255.255.255.252
+des Connection to CR2
+int lo 1
+des Loopback 1
+
+DS2
+int fa0/3
+no ip add
+sw
+int g0/1
+des Connection to CR1
+no ip add
+ip add 10.10.0.126 255.255.255.252
+int g0/2
+no sw
+ip add 10.10.0.134 255.255.255.252
+des Connection to CR2
+int lo 1
+des Loopback 1
+
+DS3
+int fa0/3
+no ip add
+sw
+int g0/1
+des Connection to CR3
+no ip add
+ip add 10.10.0.222 255.255.255.252
+int g0/2
+no sw
+ip add 10.10.0.230 255.255.255.252
+des Connection to CR4
+int lo 1
+des Loopback 1
+
+DS4
+int fa0/3
+no ip add
+sw
+int g0/1
+des Connection to CR3
+no ip add
+ip add 10.10.0.226 255.255.255.252
+int g0/2
+no sw
+ip add 10.10.0.234 255.255.255.252
+des Connection to CR4
+int lo 1
+des Loopback 1
+
+
+BR1
+int lo 1
+des Loopback 1
+int g0/0/0
+des Connection to ISP1
+int g0/0/1.100
+encapsulation dot1Q 100
+ip add 10.1.100.10 255.255.255.0
+des Connection to Vlan 100
+int g0/0/1.101
+encapsulation dot1Q 101
+ip add 10.1.101.10 255.255.255.0
+des Connection to Vlan 101
+int g0/0/1.102
+encapsulation dot1Q 102
+ip add 10.1.102.10 255.255.255.0
+des Connection to Vlan 102
+int g0/0/1.103
+encapsulation dot1Q 103
+ip add 10.1.103.10 255.255.255.0
+des Connection to Vlan 103
+int tunnel 0
+ip add 172.16.100.11 255.255.255.0
+
+
+BR2
+int lo 1
+des Loopback 1
+int g0/0/0
+des Connection to ISP1
+int g0/0/1.100
+encapsulation dot1Q 100
+ip add 10.2.100.10 255.255.255.0
+des Connection to Vlan 100
+int g0/0/1.101
+encapsulation dot1Q 101
+ip add 10.2.101.10 255.255.255.0
+des Connection to Vlan 101
+int g0/0/1.102
+encapsulation dot1Q 102
+ip add 10.2.102.10 255.255.255.0
+des Connection to Vlan 102
+int g0/0/1.103
+encapsulation dot1Q 103
+ip add 10.2.103.10 255.255.255.0
+des Connection to Vlan 103
+int tunnel 0
+ip add 172.16.100.12 255.255.255.0
+
+
+IR2
+int g1/0/1
+ipv6 add 2001:DB8:0:204::1/64
+des Connection to CR3
+int g1/0/2
+ipv6 add 2001:DB8:0:208::1/64
+des Connection to CR4
+int g1/0/3
+ipv6 add 2001:DB8:0:200::1/64
+des Connection to ISP1
+int tunnel 0
+ipv6 add 2001:DB8:16:100::1/64
+
+CR3
+int g1/0/1
+ipv6 add 2001:DB8:0:212::1/64
+int g1/0/2
+ipv6 add 2001:DB8:0:220::1/64
+int g1/0/3
+ipv6 add 2001:DB8:0:224::1/64
+int g1/0/4
+ipv6 add 2001:DB8:0:204::2/64
+int lo 1
+ipv6 add 2001:DB8:0:12::1/64
+
+CR4
+int g1/0/1
+ipv6 add 2001:DB8:0:212::2/64
+int g1/0/2
+ipv6 add 2001:DB8:0:228::1/64
+int g1/0/3
+ipv6 add 2001:DB8:0:232::1/64
+int g1/0/4
+ipv6 add 2001:DB8:0:208::2/64
+int lo 1
+ipv6 add 2001:DB8:0:13::1/64
+
+
+DS3
+int g0/1
+ipv6 add 2001:DB8:0:220::2/64
+int g0/2
+ipv6 add 2001:DB8:0:228::2/64
+int lo 1
+ipv6 add 2001:DB8:0:14::1/64
+int vl 100
+ipv6 add 2001:DB8:11:100::11/64
+int vl 101
+ipv6 add 2001:DB8:11:101::11/64
+int vl 102
+ipv6 add 2001:DB8:11:102::11/64
+int vl 999
+ipv6 add 2001:DB8:0:240::1/64
+
+Note: The interfaces on DS3 and DS4 do not take IPV6 except the loopback interface
+
+DS4
+int g0/1
+ipv6 add 2001:DB8:0:224::2/64
+int g0/2
+ipv6 add 2001:DB8:0:232::2/64
+int lo 1
+ipv6 add 2001:DB8:0:15::1/64
+int vl 100
+ipv6 add 2001:DB8:11:100::12/64
+int vl 101
+ipv6 add 2001:DB8:11:101::12/64
+int vl 102
+ipv6 add 2001:DB8:11:102::12/64
+int vl 999
+ipv6 add 2001:DB8:0:240::2/64
+
+
+Hardening (All Devices)
+clock timezone CET 1
+clock summer-time CEST recu last Sun Mar 2:00 last Sun Oct 3:00
+ip domain-name wsc2024.net
+enable se 9 Skill39@Lyon
+user admin pri 15 se 9 Skill39@Lyon
+
+
+
+
+
+
+
+
